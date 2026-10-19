@@ -1,0 +1,13 @@
+
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+tools/speedtest.exe
+tools/speedtest.md
+db.sqlite3

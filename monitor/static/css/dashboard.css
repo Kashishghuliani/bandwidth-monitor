@@ -1,0 +1,637 @@
+/* =========================================================
+   HOME BANDWIDTH MONITOR
+   Professional Dark Blue + Light Blue Theme
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f4f7fb;
+    color: #172033;
+    line-height: 1.5;
+}
+
+.container {
+    width: min(1380px, calc(100% - 48px));
+    margin: 0 auto;
+    padding: 42px 0 60px;
+}
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+header {
+    margin-bottom: 30px;
+}
+
+.section-label {
+    display: inline-block;
+    margin-bottom: 9px;
+
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+
+    color: #2563eb;
+}
+
+header h1 {
+    font-size: 32px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: #14213d;
+
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    font-size: 15px;
+    color: #667085;
+    margin-bottom: 16px;
+}
+
+.refresh-info {
+    display: block;
+
+    margin: 5px 0 0;
+
+    padding: 0;
+
+    background: transparent;
+    border: none;
+    border-radius: 0;
+
+    color: #7a8799;
+
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   PANELS
+   ========================================================= */
+
+.panel {
+    background: #ffffff;
+
+    border: 1px solid #e4eaf2;
+    border-radius: 14px;
+
+    padding: 22px;
+    margin-bottom: 22px;
+
+    box-shadow:
+        0 2px 5px rgba(15, 35, 70, 0.03),
+        0 8px 24px rgba(15, 35, 70, 0.04);
+
+    transition:
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
+}
+
+.panel:hover {
+    box-shadow:
+        0 4px 10px rgba(15, 35, 70, 0.05),
+        0 14px 32px rgba(37, 99, 235, 0.07);
+}
+
+.panel h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #182b49;
+
+    margin-bottom: 18px;
+
+    letter-spacing: -0.01em;
+}
+
+
+/* =========================================================
+   LIVE STATUS
+   ========================================================= */
+
+.status-card {
+    display: grid;
+
+    grid-template-columns: 1.5fr 1fr 1fr;
+
+    align-items: center;
+
+    min-height: 82px;
+
+    padding: 18px 20px;
+
+    background: #f8fbff;
+
+    border: 1px solid #dce9f8;
+    border-radius: 11px;
+}
+
+.status-left {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: #94a3b8;
+
+    box-shadow: 0 0 0 5px #eef2f7;
+}
+
+.status-dot.healthy {
+    background: #16a34a;
+    box-shadow: 0 0 0 5px #dcfce7;
+}
+
+.status-dot.warning {
+    background: #f59e0b;
+    box-shadow: 0 0 0 5px #fef3c7;
+}
+
+.status-dot.offline {
+    background: #dc2626;
+    box-shadow: 0 0 0 5px #fee2e2;
+}
+
+.status-text {
+    font-size: 15px;
+    font-weight: 700;
+    color: #172b4d;
+}
+
+.status-time {
+    margin-top: 2px;
+
+    font-size: 11px;
+    color: #7b8798;
+}
+
+.card-title {
+    margin-bottom: 6px;
+
+    font-size: 11px;
+    font-weight: 600;
+
+    letter-spacing: 0.02em;
+    color: #718096;
+
+    text-transform: uppercase;
+}
+
+.live-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1769e0;
+}
+
+
+/* =========================================================
+   NETWORK ALERT
+   ========================================================= */
+
+.alert-box {
+    display: none;
+
+    margin-bottom: 22px;
+    padding: 14px 17px;
+
+    background: #fff8e7;
+
+    border: 1px solid #f5d78c;
+    border-left: 4px solid #f59e0b;
+
+    border-radius: 9px;
+}
+
+.alert-title {
+    margin-bottom: 3px;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    color: #9a6700;
+}
+
+#alert-message {
+    font-size: 13px;
+    color: #76551a;
+}
+
+
+/* =========================================================
+   CARD GRIDS
+   ========================================================= */
+
+/*
+   Current Performance
+   3 cards in one row
+*/
+
+.network-grid {
+    display: grid;
+
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    gap: 14px;
+}
+
+
+/*
+   Today's Statistics
+   5 cards in ONE row
+*/
+
+.statistics-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(5, minmax(0, 1fr));
+
+    gap: 14px;
+}
+
+
+/* =========================================================
+   STANDARD WHITE CARDS
+   ========================================================= */
+
+.card {
+    min-width: 0;
+
+    background: #ffffff;
+
+    border: 1px solid #e2e8f0;
+    border-radius: 11px;
+
+    padding: 17px 18px;
+
+    box-shadow:
+        0 2px 5px rgba(15, 35, 70, 0.035);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+
+    border-color: #c8dcf5;
+
+    box-shadow:
+        0 6px 12px rgba(15, 35, 70, 0.06),
+        0 12px 26px rgba(37, 99, 235, 0.08);
+}
+
+
+/* =========================================================
+   CARD VALUES
+   ========================================================= */
+
+.value {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+
+    min-width: 0;
+
+    font-size: 21px;
+    line-height: 1.2;
+
+    font-weight: 700;
+
+    color: #172b4d;
+
+    letter-spacing: -0.02em;
+
+    white-space: nowrap;
+}
+
+.unit {
+    font-size: 11px;
+    font-weight: 600;
+
+    color: #8290a5;
+
+    letter-spacing: 0;
+}
+
+#live-ssid,
+#live-local-ip,
+#live-gateway {
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+}
+
+
+/* =========================================================
+   CURRENT PERFORMANCE SPECIAL ACCENT
+   ========================================================= */
+
+.panel:has(#latest-download) .card,
+.panel:has(#latest-upload) .card,
+.panel:has(#latest-bandwidth-ping) .card {
+    position: relative;
+    overflow: hidden;
+}
+
+.panel:has(#latest-download) .card::before,
+.panel:has(#latest-upload) .card::before,
+.panel:has(#latest-bandwidth-ping) .card::before {
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: 0;
+
+    width: 3px;
+    height: 100%;
+
+    background: #3b82f6;
+
+    border-radius: 11px 0 0 11px;
+}
+
+
+/* =========================================================
+   TODAY'S STATISTICS ACCENT
+   ========================================================= */
+
+.statistics-grid .card {
+    background: #fbfdff;
+}
+
+.statistics-grid .card:hover {
+    background: #ffffff;
+}
+
+
+/* =========================================================
+   NETWORK INFORMATION
+   ========================================================= */
+
+#live-signal,
+#live-link-speed,
+#live-network-packet-loss {
+    color: #1769e0;
+}
+
+
+/* =========================================================
+   CHART
+   ========================================================= */
+
+.chart-wrap {
+    position: relative;
+
+    width: 100%;
+    height: 360px;
+
+    padding-top: 5px;
+}
+
+#bandwidthChart {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+
+/* =========================================================
+   TABLE
+   ========================================================= */
+
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+
+    border-collapse: separate;
+    border-spacing: 0;
+
+    font-size: 13px;
+}
+
+thead th {
+    padding: 11px 13px;
+
+    background: #f5f8fc;
+
+    border-top: 1px solid #e3e9f1;
+    border-bottom: 1px solid #e3e9f1;
+
+    color: #64748b;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-align: left;
+
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+
+    white-space: nowrap;
+}
+
+thead th:first-child {
+    border-left: 1px solid #e3e9f1;
+    border-radius: 7px 0 0 7px;
+}
+
+thead th:last-child {
+    border-right: 1px solid #e3e9f1;
+    border-radius: 0 7px 7px 0;
+}
+
+tbody td {
+    padding: 13px;
+
+    border-bottom: 1px solid #edf1f5;
+
+    color: #44546a;
+
+    white-space: nowrap;
+}
+
+tbody tr {
+    transition: background 0.15s ease;
+}
+
+tbody tr:hover {
+    background: #f7fbff;
+}
+
+tbody td:nth-child(2),
+tbody td:nth-child(3) {
+    color: #1769e0;
+    font-weight: 600;
+}
+
+tbody td:nth-child(4),
+tbody td:nth-child(5) {
+    color: #53657d;
+    font-weight: 500;
+}
+
+.empty-message {
+    text-align: center;
+    padding: 30px !important;
+    color: #8b98aa !important;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #eef2f7;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #b8c5d6;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #8fa2bb;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+
+    .statistics-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .network-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+
+@media (max-width: 800px) {
+
+    .container {
+        width: min(100% - 28px, 700px);
+        padding-top: 28px;
+    }
+
+    header h1 {
+        font-size: 27px;
+    }
+
+    .status-card {
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+
+    .status-left {
+        grid-column: 1 / -1;
+    }
+
+    .network-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .statistics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+
+@media (max-width: 560px) {
+
+    .container {
+        width: calc(100% - 20px);
+        padding: 22px 0 40px;
+    }
+
+    header {
+        margin-bottom: 22px;
+    }
+
+    header h1 {
+        font-size: 24px;
+    }
+
+    .subtitle {
+        font-size: 13px;
+    }
+
+    .panel {
+        padding: 16px;
+        border-radius: 11px;
+    }
+
+    .status-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .status-left {
+        width: 100%;
+    }
+
+    .network-grid,
+    .statistics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .card {
+        padding: 15px;
+    }
+
+    .value {
+        font-size: 19px;
+    }
+
+    .chart-wrap {
+        height: 280px;
+    }
+
+    table {
+        min-width: 650px;
+    }
+}
