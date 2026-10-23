@@ -1,13 +1,58 @@
 
-venv/
-.venv/
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables and secrets
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+secrets.json
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+*.log
+
+# Test and coverage output
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors and operating systems
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
+
+# Local Windows agent output
+agent_logs/
+*.log
+
+# Local Ookla executable - distribute separately if permitted
 tools/speedtest.exe
-tools/speedtest.md
-db.sqlite3
+tools/speedtest
+
+# Build and packaging output
+build/
+dist/
+*.spec
+*.egg-info/
+
+# Temporary files
+*.tmp
+*.bak

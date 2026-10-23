@@ -1,308 +1,236 @@
+
+import platform
 import re
 import subprocess
 
 
-# =====================================================
-# RUN WINDOWS COMMAND
-# =====================================================
+def run_command(command, timeout=5):
+    """Run a local system command safely and return its output."""
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            shell=False,
+            encoding="utf-8",
+            errors="replace",
+        )
 
-def run_command(command):
+        if result.returncode != 0:
+            return ""
 
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        shell=True,
-        encoding="utf-8",
-        errors="ignore",
-    )
+        return result.stdout.strip()
 
-    return result.stdout
-
-
-# =====================================================
-# GET WI-FI INFORMATION
-# =====================================================
-
-def get_wifi_info():
-
-    output = run_command(
-        "netsh wlan show interfaces"
-    )
-
-    info = {
-        "ssid": None,
-        "signal": None,
-        "link_speed": None,
-        "interface": None,
-    }
-
-    for line in output.splitlines():
-
-        line = line.strip()
-
-        # -------------------------------------------------
-        # WI-FI INTERFACE NAME
-        # -------------------------------------------------
-
-        if re.match(
-            r"^Name\s*:",
-            line,
-            re.IGNORECASE,
-        ):
-
-            info["interface"] = line.split(
-                ":",
-                1
-            )[1].strip()
-
-        # -------------------------------------------------
-        # SSID
-        # -------------------------------------------------
-
-        elif re.match(
-            r"^SSID\s*:",
-            line,
-            re.IGNORECASE,
-        ):
-
-            info["ssid"] = line.split(
-                ":",
-                1
-            )[1].strip()
-
-        # -------------------------------------------------
-        # SIGNAL
-        # -------------------------------------------------
-
-        elif re.match(
-            r"^Signal\s*:",
-            line,
-            re.IGNORECASE,
-        ):
-
-            info["signal"] = line.split(
-                ":",
-                1
-            )[1].strip()
-
-        # -------------------------------------------------
-        # RECEIVE RATE
-        # -------------------------------------------------
-
-        elif re.match(
-            r"^Receive rate.*:",
-            line,
-            re.IGNORECASE,
-        ):
-
-            value = line.split(
-                ":",
-                1
-            )[1].strip()
-
-            info["link_speed"] = f"{value} Mbps"
-
-    return info
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
 
 
-# =====================================================
-# GET WI-FI ADAPTER IPv4 INFORMATION
-# =====================================================
-
-def get_wifi_adapter_info():
-
+def get_ping_info(host="1.1.1.1"):
     """
-    Get IPv4 address and IPv4 default gateway
-    specifically from the Wi-Fi adapter.
+    Ping a public IP to check basic internet connectivity.
+
+    Returns ping latency in milliseconds and packet loss percentage.
     """
+    if platform.system().lower() == "windows":
+        output = run_command(
+            ["ping", "-n", "4", "-w", "1500", host],
+            timeout=8,
+        )
 
-    output = run_command(
-        "ipconfig /all"
-    )
-
-    # Split Windows adapter sections
-    sections = re.split(
-        r"\r?\n(?=(?:Wireless LAN|Ethernet) adapter )",
-        output,
-        flags=re.IGNORECASE,
-    )
-
-    for section in sections:
-
-        # We only want the Wi-Fi adapter
-        if not re.search(
-            r"adapter Wi-Fi:",
-            section,
+        loss_match = re.search(
+            r"\((\d+)%\s*loss\)",
+            output,
             re.IGNORECASE,
-        ):
+        )
 
-            continue
-
-        local_ip = None
-        gateway = None
-
-        lines = section.splitlines()
-
-        # -------------------------------------------------
-        # SEARCH ADAPTER INFORMATION
-        # -------------------------------------------------
-
-        for i, line in enumerate(lines):
-
-            stripped = line.strip()
-
-            # -------------------------------------------------
-            # IPv4 ADDRESS
-            # -------------------------------------------------
-
-            if re.search(
-                r"IPv4 Address",
-                stripped,
+        if not loss_match:
+            loss_match = re.search(
+                r"(\d+)%\s*loss",
+                output,
                 re.IGNORECASE,
-            ):
+            )
 
-                if ":" in stripped:
+        ping_match = re.search(
+            r"(?:Average|Average =).*?(\d+)\s*ms",
+            output,
+            re.IGNORECASE,
+        )
 
-                    value = stripped.split(
-                        ":",
-                        1
-                    )[1].strip()
-
-                    # Remove possible "(Preferred)"
-                    value = value.split(
-                        "(",
-                        1
-                    )[0].strip()
-
-                    if re.match(
-                        r"^\d{1,3}(?:\.\d{1,3}){3}$",
-                        value,
-                    ):
-
-                        local_ip = value
-
-            # -------------------------------------------------
-            # DEFAULT GATEWAY
-            # -------------------------------------------------
-
-            elif re.search(
-                r"Default Gateway",
-                stripped,
+        if not ping_match:
+            ping_match = re.search(
+                r"Average\s*=\s*(\d+)\s*ms",
+                output,
                 re.IGNORECASE,
-            ):
+            )
 
-                # Same-line gateway
-                if ":" in stripped:
+        packet_loss = float(loss_match.group(1)) if loss_match else None
+        ping = float(ping_match.group(1)) if ping_match else None
 
-                    value = stripped.split(
-                        ":",
-                        1
-                    )[1].strip()
-
-                    if re.match(
-                        r"^\d{1,3}(?:\.\d{1,3}){3}$",
-                        value,
-                    ):
-
-                        gateway = value
-
-                # Gateway may appear on next line
-                j = i + 1
-
-                while j < len(lines):
-
-                    next_value = lines[j].strip()
-
-                    if not next_value:
-
-                        j += 1
-                        continue
-
-                    if re.match(
-                        r"^\d{1,3}(?:\.\d{1,3}){3}$",
-                        next_value,
-                    ):
-
-                        gateway = next_value
-                        break
-
-                    # Stop when another property begins
-                    if ":" in next_value:
-
-                        break
-
-                    j += 1
+        # Do not report a successful connection if every ping failed.
+        connected = packet_loss is not None and packet_loss < 100
 
         return {
-            "local_ip": local_ip,
-            "gateway": gateway,
+            "internet_connected": connected,
+            "ping": ping,
+            "packet_loss": packet_loss,
         }
 
-    return {
-        "local_ip": None,
-        "gateway": None,
-    }
-
-
-# =====================================================
-# GET PACKET LOSS
-# =====================================================
-
-def get_packet_loss(host="8.8.8.8"):
-
+    # Linux/macOS support is best-effort.
     output = run_command(
-        f"ping -n 5 {host}"
+        ["ping", "-c", "4", "-W", "2", host],
+        timeout=10,
     )
 
-    # Windows output:
-    # Packets: Sent = 5, Received = 5, Lost = 0 (0% loss),
-
-    match = re.search(
-        r"Lost\s*=\s*\d+\s*\((\d+)%\s*loss\)",
+    loss_match = re.search(r"(\d+(?:\.\d+)?)%\s*packet loss", output)
+    ping_match = re.search(
+        r"=\s*[\d.]+/([\d.]+)/",
         output,
-        re.IGNORECASE,
     )
 
-    if match:
-        return float(match.group(1))
-
-    return None
-
-
-# =====================================================
-# GET COMPLETE NETWORK INFORMATION
-# =====================================================
-
-def get_network_info():
-
-    wifi = get_wifi_info()
-
-    network = get_wifi_adapter_info()
-
-    packet_loss = get_packet_loss()
+    packet_loss = float(loss_match.group(1)) if loss_match else None
+    ping = float(ping_match.group(1)) if ping_match else None
 
     return {
-        **wifi,
-        **network,
+        "internet_connected": packet_loss is not None and packet_loss < 100,
+        "ping": ping,
         "packet_loss": packet_loss,
     }
 
 
-# =====================================================
-# TEST DIRECTLY
-# =====================================================
+def get_windows_wifi_info():
+    """Collect Wi-Fi details using Windows netsh."""
+    output = run_command(["netsh", "wlan", "show", "interfaces"])
+
+    if not output:
+        return {
+            "ssid": None,
+            "wifi_signal": None,
+            "wifi_link_speed": None,
+        }
+
+    ssid = None
+    signal = None
+    link_speed = None
+
+    for line in output.splitlines():
+        line = line.strip()
+
+        # Match English Windows output. Other Windows display languages
+        # may use different field labels.
+        if re.match(r"^SSID\s*:", line, re.IGNORECASE):
+            value = line.split(":", 1)[1].strip()
+            if value:
+                ssid = value
+
+        elif re.match(r"^Signal\s*:", line, re.IGNORECASE):
+            value = line.split(":", 1)[1].strip()
+            if value:
+                signal = value
+
+        elif re.match(r"^Receive rate\s*\(Mbps\)\s*:", line, re.IGNORECASE):
+            value = line.split(":", 1)[1].strip()
+            if value:
+                link_speed = f"{value} Mbps"
+
+    return {
+        "ssid": ssid,
+        "wifi_signal": signal,
+        "wifi_link_speed": link_speed,
+    }
+
+
+def get_windows_ip_info():
+    """Read local IPv4 address and default gateway from ipconfig."""
+    output = run_command(["ipconfig"])
+
+    local_ip = None
+    gateway = None
+    current_adapter = []
+
+    def inspect_adapter(lines):
+        adapter_text = "\n".join(lines)
+
+        # English Windows ipconfig output.
+        ipv4_match = re.search(
+            r"IPv4 Address[.\s]*:\s*"
+            r"(?:\([^)]*\)\s*)?"
+            r"(\d{1,3}(?:\.\d{1,3}){3})",
+            adapter_text,
+            re.IGNORECASE,
+        )
+
+        gateway_match = re.search(
+            r"Default Gateway[.\s]*:\s*"
+            r"(\d{1,3}(?:\.\d{1,3}){3})",
+            adapter_text,
+            re.IGNORECASE,
+        )
+
+        adapter_ip = ipv4_match.group(1) if ipv4_match else None
+        adapter_gateway = gateway_match.group(1) if gateway_match else None
+
+        # Ignore disconnected adapters and loopback addresses.
+        if adapter_ip and adapter_ip.startswith("127."):
+            adapter_ip = None
+
+        return adapter_ip, adapter_gateway
+
+    for line in output.splitlines():
+        if line and not line[0].isspace() and ":" in line:
+            if current_adapter:
+                adapter_ip, adapter_gateway = inspect_adapter(current_adapter)
+
+                if adapter_ip and local_ip is None:
+                    local_ip = adapter_ip
+                    gateway = adapter_gateway
+
+            current_adapter = []
+
+        current_adapter.append(line)
+
+    if current_adapter:
+        adapter_ip, adapter_gateway = inspect_adapter(current_adapter)
+
+        if adapter_ip and local_ip is None:
+            local_ip = adapter_ip
+            gateway = adapter_gateway
+
+    return {
+        "local_ip": local_ip,
+        "gateway": gateway,
+    }
+
+
+def get_network_info():
+    """
+    Return all network fields expected by health_monitor.py.
+    """
+    ping_info = get_ping_info()
+
+    if platform.system().lower() == "windows":
+        wifi_info = get_windows_wifi_info()
+        ip_info = get_windows_ip_info()
+    else:
+        wifi_info = {
+            "ssid": None,
+            "wifi_signal": None,
+            "wifi_link_speed": None,
+        }
+        ip_info = {
+            "local_ip": None,
+            "gateway": None,
+        }
+
+    return {
+        **ping_info,
+        **wifi_info,
+        **ip_info,
+    }
+
 
 if __name__ == "__main__":
+    import json
 
-    info = get_network_info()
-
-    print()
-    print("Network Information")
-    print("-------------------")
-
-    for key, value in info.items():
-
-        print(
-            f"{key}: {value}"
-        )
+    print(json.dumps(get_network_info(), indent=2))

@@ -1,528 +1,127 @@
+
 import json
+import logging
 import os
-import platform
+import shutil
 import subprocess
+from pathlib import Path
 
 
-# =====================================================
-# SETTINGS
-# =====================================================
+logger = logging.getLogger(__name__)
 
-# Official Ookla Speedtest CLI
-SPEEDTEST_EXE = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "tools",
-        "speedtest.exe",
-    )
+SPEEDTEST_PATH = os.environ.get("SPEEDTEST_PATH", "").strip()
+SPEEDTEST_TIMEOUT = int(
+    os.environ.get("SPEEDTEST_TIMEOUT", "180")
 )
 
-MIN_VALID_SPEED = 0.01
-MAX_VALID_SPEED = 10000.0
 
-MIN_VALID_PING = 0.0
-MAX_VALID_PING = 5000.0
+def find_speedtest_executable():
+    """
+    Find the Ookla Speedtest CLI executable.
 
+    Set SPEEDTEST_PATH to its full path when it is not on PATH.
+    """
+    if SPEEDTEST_PATH:
+        executable = Path(SPEEDTEST_PATH)
 
-# =====================================================
-# VALIDATE SPEED
-# =====================================================
-
-def validate_speed(speed, speed_type):
-
-    try:
-        speed = float(speed)
-
-    except (TypeError, ValueError):
-
-        print(
-            f"Invalid {speed_type} speed: "
-            f"{speed}"
-        )
-
-        return None
-
-    if speed < MIN_VALID_SPEED:
-
-        print(
-            f"Invalid {speed_type} speed: "
-            f"{speed} Mbps"
-        )
-
-        return None
-
-    if speed > MAX_VALID_SPEED:
-
-        print(
-            f"Unrealistic {speed_type} speed: "
-            f"{speed} Mbps"
-        )
-
-        return None
-
-    return round(speed, 2)
-
-
-# =====================================================
-# VALIDATE PING
-# =====================================================
-
-def validate_ping(ping):
-
-    try:
-
-        ping = float(ping)
-
-    except (TypeError, ValueError):
-
-        print(
-            f"Invalid ping: {ping}"
-        )
-
-        return None
-
-    if (
-        ping < MIN_VALID_PING
-        or ping > MAX_VALID_PING
-    ):
-
-        print(
-            f"Unrealistic ping: "
-            f"{ping} ms"
-        )
-
-        return None
-
-    return round(ping, 2)
-
-
-# =====================================================
-# CHECK OOKLA EXECUTABLE
-# =====================================================
-
-def check_speedtest_executable():
-
-    if not os.path.exists(SPEEDTEST_EXE):
+        if executable.is_file():
+            return str(executable)
 
         raise FileNotFoundError(
-            "Ookla Speedtest executable not found.\n"
-            f"Expected location:\n"
-            f"{SPEEDTEST_EXE}"
+            f"Speedtest executable not found: {executable}"
         )
 
+    executable = shutil.which("speedtest")
 
-# =====================================================
-# RUN OOKLA SPEEDTEST
-# =====================================================
+    if executable:
+        return executable
 
-def run_speed_test():
+    # Optional local tools directory, relative to this file.
+    project_root = Path(__file__).resolve().parent.parent
 
-    print()
-    print("========================================")
-    print("Running Ookla Speedtest...")
-    print("========================================")
-
-    # =================================================
-    # CHECK EXECUTABLE
-    # =================================================
-
-    check_speedtest_executable()
-
-    print(
-        f"Executable: {SPEEDTEST_EXE}"
-    )
-
-    # =================================================
-    # COMMAND
-    # =================================================
-
-    command = [
-
-        SPEEDTEST_EXE,
-
-        "--accept-license",
-
-        "--accept-gdpr",
-
-        "--format=json",
+    candidates = [
+        project_root / "tools" / "speedtest.exe",
+        project_root / "tools" / "speedtest",
     ]
 
-    try:
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
 
-        # =================================================
-        # RUN OFFICIAL OOKLA CLI
-        # =================================================
+    raise FileNotFoundError(
+        "Ookla Speedtest CLI was not found. Install it or set "
+        "SPEEDTEST_PATH to its executable."
+    )
 
-        result = subprocess.run(
 
-            command,
+def run_speed_test():
+    """
+    Run an Ookla speed test and return normalized results.
 
-            capture_output=True,
-
-            text=True,
-
-            timeout=180,
-        )
-
-        # =================================================
-        # CHECK PROCESS ERROR
-        # =================================================
-
-        if result.returncode != 0:
-
-            print(
-                "Ookla Speedtest failed."
-            )
-
-            if result.stderr:
-
-                print(
-                    "Error:"
-                )
-
-                print(
-                    result.stderr.strip()
-                )
-
-            raise RuntimeError(
-                "Ookla Speedtest returned "
-                f"exit code {result.returncode}"
-            )
-
-        # =================================================
-        # GET JSON OUTPUT
-        # =================================================
-
-        output = result.stdout.strip()
-
-        if not output:
-
-            raise RuntimeError(
-                "Ookla Speedtest returned "
-                "empty output."
-            )
-
-        # =================================================
-        # PARSE JSON
-        # =================================================
-
-        try:
-
-            data = json.loads(
-                output
-            )
-
-        except json.JSONDecodeError as e:
-
-            print(
-                "Could not parse Ookla "
-                "Speedtest JSON."
-            )
-
-            print(
-                "Raw output:"
-            )
-
-            print(output)
-
-            raise RuntimeError(
-                f"Invalid JSON returned "
-                f"by Ookla: {e}"
-            )
-
-        # =================================================
-        # DOWNLOAD
-        # =================================================
-        #
-        # Ookla returns bandwidth in BYTES/SECOND.
-        #
-        # Mbps =
-        # bytes/sec * 8 / 1,000,000
-        # =================================================
-
-        download_bandwidth = (
-            data
-            .get("download", {})
-            .get("bandwidth")
-        )
-
-        if download_bandwidth is None:
-
-            download = None
-
-        else:
-
-            download = (
-                float(download_bandwidth)
-                * 8
-                / 1_000_000
-            )
-
-            download = validate_speed(
-                download,
-                "download"
-            )
-
-        # =================================================
-        # UPLOAD
-        # =================================================
-
-        upload_bandwidth = (
-            data
-            .get("upload", {})
-            .get("bandwidth")
-        )
-
-        if upload_bandwidth is None:
-
-            upload = None
-
-        else:
-
-            upload = (
-                float(upload_bandwidth)
-                * 8
-                / 1_000_000
-            )
-
-            upload = validate_speed(
-                upload,
-                "upload"
-            )
-
-        # =================================================
-        # PING
-        # =================================================
-
-        ping_value = (
-            data
-            .get("ping", {})
-            .get("latency")
-        )
-
-        ping = validate_ping(
-            ping_value
-        )
-
-        # =================================================
-        # SERVER
-        # =================================================
-
-        server_data = data.get(
-            "server",
-            {}
-        )
-
-        server_name = server_data.get(
-            "name",
-            "Unknown"
-        )
-
-        server_location = server_data.get(
-            "location",
-            "Unknown"
-        )
-
-        server_country = server_data.get(
-            "country",
-            "Unknown"
-        )
-
-        server_id = server_data.get(
-            "id",
-            "Unknown"
-        )
-
-        server_host = server_data.get(
-            "host",
-            "Unknown"
-        )
-
-        # =================================================
-        # ISP
-        # =================================================
-
-        isp = data.get(
-            "isp",
-            "Unknown"
-        )
-
-        # =================================================
-        # RESULT
-        # =================================================
-
-        result_data = {
-
-            "download":
-                download,
-
-            "upload":
-                upload,
-
-            "ping":
-                ping,
-
-            "server":
-                server_name,
-
-            "server_location":
-                server_location,
-
-            "server_country":
-                server_country,
-
-            "server_id":
-                server_id,
-
-            "server_host":
-                server_host,
-
-            "isp":
-                isp,
+    Returns:
+        {
+            "download_speed": float,  # Mbps
+            "upload_speed": float,    # Mbps
+            "ping": float,             # milliseconds
+            "server_name": str | None
         }
+    """
+    executable = find_speedtest_executable()
 
-        # =================================================
-        # TERMINAL OUTPUT
-        # =================================================
+    try:
+        result = subprocess.run(
+            [executable, "--accept-license", "--accept-gdpr", "--format=json"],
+            capture_output=True,
+            text=True,
+            timeout=SPEEDTEST_TIMEOUT,
+            check=False,
+            shell=False,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"Speed test exceeded {SPEEDTEST_TIMEOUT} seconds."
+        ) from exc
+    except OSError as exc:
+        raise RuntimeError(
+            f"Could not start Speedtest CLI: {exc}"
+        ) from exc
 
-        print()
-        print("----------------------------------------")
-        print("Ookla Speed Test Result")
-        print("----------------------------------------")
-
-        if download is not None:
-
-            print(
-                f"Download: "
-                f"{download:.2f} Mbps"
-            )
-
-        else:
-
-            print(
-                "Download: unavailable"
-            )
-
-        if upload is not None:
-
-            print(
-                f"Upload: "
-                f"{upload:.2f} Mbps"
-            )
-
-        else:
-
-            print(
-                "Upload: unavailable"
-            )
-
-        if ping is not None:
-
-            print(
-                f"Ping: "
-                f"{ping:.2f} ms"
-            )
-
-        else:
-
-            print(
-                "Ping: unavailable"
-            )
-
-        print(
-            f"ISP: {isp}"
+    if result.returncode != 0:
+        error_message = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(
+            f"Speedtest CLI failed: {error_message or 'unknown error'}"
         )
 
-        print(
-            f"Server: "
-            f"{server_name}"
-        )
+    try:
+        data = json.loads(result.stdout)
+        download_bps = float(data["download"]["bandwidth"]) * 8
+        upload_bps = float(data["upload"]["bandwidth"]) * 8
+        ping_ms = float(data["ping"]["latency"])
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        logger.exception("Could not parse Speedtest CLI output")
+        raise RuntimeError("Speedtest CLI returned unexpected JSON.") from exc
 
-        print(
-            f"Location: "
-            f"{server_location}, "
-            f"{server_country}"
-        )
+    # Ookla JSON bandwidth is bytes per second.
+    download_mbps = download_bps / 1_000_000
+    upload_mbps = upload_bps / 1_000_000
 
-        print(
-            f"Server ID: "
-            f"{server_id}"
-        )
+    server_name = data.get("server", {}).get("name")
 
-        print(
-            f"Server Host: "
-            f"{server_host}"
-        )
+    return {
+        "download_speed": round(download_mbps, 2),
+        "upload_speed": round(upload_mbps, 2),
+        "ping": round(ping_ms, 2),
+        "server_name": server_name,
+    }
 
-        print("----------------------------------------")
-
-        return result_data
-
-    except subprocess.TimeoutExpired:
-
-        print()
-        print(
-            "Ookla Speedtest timed out "
-            "after 180 seconds."
-        )
-
-        raise
-
-    except Exception as e:
-
-        print()
-        print(
-            f"Speedtest failed: {e}"
-        )
-
-        raise
-
-
-# =====================================================
-# TEST DIRECTLY
-# =====================================================
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
 
-    result = run_speed_test()
-
-    print()
-    print("========================================")
-    print("FINAL RESULT")
-    print("========================================")
-
-    print(
-        f"Download: "
-        f"{result['download']} Mbps"
-    )
-
-    print(
-        f"Upload: "
-        f"{result['upload']} Mbps"
-    )
-
-    print(
-        f"Ping: "
-        f"{result['ping']} ms"
-    )
-
-    print(
-        f"ISP: "
-        f"{result['isp']}"
-    )
-
-    print(
-        f"Server: "
-        f"{result['server']}"
-    )
-
-    print(
-        f"Location: "
-        f"{result['server_location']}"
-    )
-
-    print(
-        f"Server ID: "
-        f"{result['server_id']}"
-    )
+    try:
+        print(json.dumps(run_speed_test(), indent=2))
+    except (RuntimeError, FileNotFoundError) as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1)

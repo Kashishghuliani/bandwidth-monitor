@@ -1,2182 +1,613 @@
-{% load tz %}
-{% load static %}
 
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bandwidth Monitor</title>
 
-<meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
->
+    <style>
+        * { box-sizing: border-box; }
 
-<title>Bandwidth Monitor</title>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f7fb;
+            color: #1f2937;
+        }
 
-<link
-    rel="stylesheet"
-    href="{% static 'css/dashboard.css' %}"
->
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 18px 5%;
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+        }
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        header h1 { margin: 0; font-size: 23px; }
 
+        .user-area {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        button, select, .button {
+            padding: 10px 13px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            font-size: 14px;
+        }
+
+        button { cursor: pointer; }
+
+        .primary {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        main {
+            max-width: 1250px;
+            margin: 28px auto;
+            padding: 0 20px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 22px;
+        }
+
+        .toolbar form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .muted { color: #6b7280; font-size: 13px; }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+
+        .card, .panel {
+            background: white;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+        }
+
+        .card h3 {
+            margin: 0 0 14px;
+            color: #6b7280;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .metric {
+            font-size: 27px;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+
+        .unit { font-size: 13px; color: #6b7280; }
+
+        .status {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 20px;
+            background: #e5e7eb;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status.healthy {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status.unhealthy {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status.unknown {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .panels {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 18px;
+            margin-bottom: 22px;
+        }
+
+        .panel h2 {
+            margin: 0 0 18px;
+            font-size: 17px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+
+        .details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+
+        .detail-label {
+            margin-bottom: 6px;
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .detail-value {
+            overflow-wrap: anywhere;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .table-wrap { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        th, td {
+            padding: 13px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+            background: #f9fafb;
+            color: #6b7280;
+        }
+
+        .empty {
+            padding: 24px 10px;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        @media (max-width: 600px) {
+            header { padding: 16px 20px; }
+            main { margin-top: 20px; padding: 0 12px; }
+            .card, .panel { padding: 16px; }
+        }
+    </style>
 </head>
 
 <body>
-
-<div class="container">
-
-<!-- =====================================================
-     HEADER
-====================================================== -->
-
 <header>
+    <h1>Bandwidth Monitor</h1>
 
-    <div class="section-label">
-        Network Monitoring
+    <div class="user-area">
+        <span class="muted">
+            Signed in as {{ request.user.username }}
+        </span>
+
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">Sign out</button>
+        </form>
     </div>
-
-    <h1>
-        Home Bandwidth Monitor
-    </h1>
-
-    <div class="subtitle">
-        Internet connection performance and Wi-Fi health
-    </div>
-
 </header>
 
-
-<!-- =====================================================
-     MONITOR
-====================================================== -->
-
-<div class="panel">
-
-    <h2>
-        Monitor
-    </h2>
-
-    <div class="network-grid">
-
-        <div class="card">
-
-            <div class="card-title">
-                Monitor Status
-            </div>
-
-            <div
-                id="monitor-status"
-                class="value"
-            >
-                Checking...
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Last Health Check
-            </div>
-
-            <div
-                id="last-health-check"
-                class="value"
-            >
-                —
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Next Bandwidth Test
-            </div>
-
-            <div
-                id="next-bandwidth-test"
-                class="value"
-            >
-                —
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- =====================================================
-     LIVE STATUS
-====================================================== -->
-
-<div class="panel">
-
-    <div class="status-card">
-
-        <div class="status-left">
-
-            <div
-                id="status-dot"
-                class="status-dot"
-            ></div>
-
-            <div>
-
-                <div
-                    id="network-status"
-                    class="status-text"
-                >
-                    Checking...
-                </div>
-
-                <div
-                    id="status-time"
-                    class="status-time"
-                >
-                    Waiting for network data...
-                </div>
-
-            </div>
-
-        </div>
-
-
+<main>
+    <section class="toolbar">
         <div>
-
-            <div class="card-title">
-                Live Latency
+            <h2 style="margin: 0 0 6px;">Network Dashboard</h2>
+            <div class="muted">
+                View network health and bandwidth for your registered devices.
             </div>
-
-            <div
-                id="live-ping"
-                class="live-value"
-            >
-                —
-            </div>
-
-            <div class="unit">
-                Ping to 8.8.8.8
-            </div>
-
         </div>
 
-
-        <div>
-
-            <div class="card-title">
-                Packet Loss
-            </div>
-
-            <div
-                id="live-packet-loss"
-                class="live-value"
-            >
-                —
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- =====================================================
-     NETWORK ALERT
-====================================================== -->
-
-<div
-    id="network-alert"
-    class="alert-box"
-    style="display: none;"
->
-
-    <div class="alert-title">
-        Network Alert
-    </div>
-
-    <div id="alert-message"></div>
-
-</div>
-
-
-<!-- =====================================================
-     CONNECTION QUALITY
-====================================================== -->
-
-<div class="panel">
-
-    <h2>
-        Connection Quality
-    </h2>
-
-    <div class="network-grid">
-
-        <div class="card">
-
-            <div class="card-title">
-                Quality
-            </div>
-
-            <div
-                id="connection-quality"
-                class="value"
-            >
-                —
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Latency
-            </div>
-
-            <div class="value">
-
-                <span id="quality-latency">
-                    —
-                </span>
-
-                <span class="unit">
-                    ms
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Packet Loss
-            </div>
-
-            <div class="value">
-
-                <span id="quality-packet-loss">
-                    —
-                </span>
-
-                <span class="unit">
-                    %
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Download
-            </div>
-
-            <div class="value">
-
-                <span id="quality-download">
-                    —
-                </span>
-
-                <span class="unit">
-                    Mbps
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Upload
-            </div>
-
-            <div class="value">
-
-                <span id="quality-upload">
-                    —
-                </span>
-
-                <span class="unit">
-                    Mbps
-                </span>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- =====================================================
-     CURRENT PERFORMANCE
-====================================================== -->
-
-<div class="panel">
-
-    <h2>
-        Current Performance
-    </h2>
-
-    <div class="network-grid">
-
-        <div class="card">
-
-            <div class="card-title">
-                Latest Download
-            </div>
-
-            <div class="value">
-
-                <span id="latest-download">
-
-                    {% if latest %}
-                        {{ latest.download_speed|floatformat:2 }}
-                    {% else %}
-                        —
-                    {% endif %}
-
-                </span>
-
-                <span class="unit">
-                    Mbps
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Latest Upload
-            </div>
-
-            <div class="value">
-
-                <span id="latest-upload">
-
-                    {% if latest %}
-                        {{ latest.upload_speed|floatformat:2 }}
-                    {% else %}
-                        —
-                    {% endif %}
-
-                </span>
-
-                <span class="unit">
-                    Mbps
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Speed Test Ping
-            </div>
-
-            <div class="value">
-
-                <span id="latest-bandwidth-ping">
-
-                    {% if latest and latest.ping != None %}
-                        {{ latest.ping|floatformat:2 }}
-                    {% else %}
-                        —
-                    {% endif %}
-
-                </span>
-
-                <span class="unit">
-                    ms
-                </span>
-
-            </div>
-
-            <div class="unit">
-                Latency to speed-test server
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- =====================================================
-     TODAY'S STATISTICS
-====================================================== -->
-
-<div class="panel">
-
-    <h2>
-        Today's Statistics
-    </h2>
-
-    <div class="statistics-grid">
-
-        <div class="card">
-
-            <div class="card-title">
-                Average Download
-            </div>
-
-            <div
-                id="avg-download"
-                class="value"
-            >
-
-                {% if statistics.avg_download != None %}
-
-                    {{ statistics.avg_download|floatformat:2 }}
-
-                    <span class="unit">
-                        Mbps
-                    </span>
-
-                {% else %}
-
-                    —
-
-                {% endif %}
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Maximum Download
-            </div>
-
-            <div
-                id="max-download"
-                class="value"
-            >
-
-                {% if statistics.max_download != None %}
-
-                    {{ statistics.max_download|floatformat:2 }}
-
-                    <span class="unit">
-                        Mbps
-                    </span>
-
-                {% else %}
-
-                    —
-
-                {% endif %}
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Minimum Download
-            </div>
-
-            <div
-                id="min-download"
-                class="value"
-            >
-
-                {% if statistics.min_download != None %}
-
-                    {{ statistics.min_download|floatformat:2 }}
-
-                    <span class="unit">
-                        Mbps
-                    </span>
-
-                {% else %}
-
-                    —
-
-                {% endif %}
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Average Upload
-            </div>
-
-            <div
-                id="avg-upload"
-                class="value"
-            >
-
-                {% if statistics.avg_upload != None %}
-
-                    {{ statistics.avg_upload|floatformat:2 }}
-
-                    <span class="unit">
-                        Mbps
-                    </span>
-
-                {% else %}
-
-                    —
-
-                {% endif %}
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Average Speed Test Ping
-            </div>
-
-            <div
-                id="avg-ping"
-                class="value"
-            >
-
-                {% if statistics.avg_ping != None %}
-
-                    {{ statistics.avg_ping|floatformat:2 }}
-
-                    <span class="unit">
-                        ms
-                    </span>
-
-                {% else %}
-
-                    —
-
-                {% endif %}
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- =====================================================
-     NETWORK INFORMATION
-====================================================== -->
-
-<div class="panel">
-
-    <h2>
-        Network Information
-    </h2>
-
-    <div class="network-grid">
-
-        <div class="card">
-
-            <div class="card-title">
-                Wi-Fi Network
-            </div>
-
-            <div
-                id="live-ssid"
-                class="value"
-            >
-                {{ health.ssid|default:"Unknown" }}
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Wi-Fi Signal
-            </div>
-
-            <div
-                id="live-signal"
-                class="value"
-            >
-                {{ health.wifi_signal|default:"Unknown" }}
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Wi-Fi Link Speed
-            </div>
-
-            <div
-                id="live-link-speed"
-                class="value"
-            >
-                {{ health.wifi_link_speed|default:"Unknown" }}
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Local IP
-            </div>
-
-            <div
-                id="live-local-ip"
-                class="value"
-            >
-                {{ health.local_ip|default:"Unknown" }}
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Gateway
-            </div>
-
-            <div
-                id="live-gateway"
-                class="value"
-            >
-                {{ health.gateway|default:"Unknown" }}
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- =====================================================
-     BANDWIDTH HISTORY
-====================================================== -->
-
-<div class="panel">
-
-    <h2>
-        Bandwidth History
-    </h2>
-
-    <div class="chart-wrap">
-
-        <canvas id="bandwidthChart"></canvas>
-
-    </div>
-
-</div>
-
-
-<!-- =====================================================
-     RECENT TESTS
-====================================================== -->
-
-<div class="panel">
-
-    <h2>
-        Recent Tests
-    </h2>
-
-    <div class="table-wrap">
-
-        <table>
-
-            <thead>
-
-                <tr>
-
-                    <th>
-                        Time
-                    </th>
-
-                    <th>
-                        Download
-                    </th>
-
-                    <th>
-                        Upload
-                    </th>
-
-                    <th>
-                        Speed Test Ping
-                    </th>
-
-                    <th>
-                        Packet Loss
-                    </th>
-
-                </tr>
-
-            </thead>
-
-
-            <tbody id="recent-tests-body">
-
-                {% for test in recent_tests %}
-
-                <tr>
-
-                    <td>
-                        {{ test.timestamp|localtime|date:"d M, H:i:s" }}
-                    </td>
-
-                    <td>
-                        {{ test.download_speed|floatformat:2 }}
-                        Mbps
-                    </td>
-
-                    <td>
-                        {{ test.upload_speed|floatformat:2 }}
-                        Mbps
-                    </td>
-
-                    <td>
-
-                        {% if test.ping != None %}
-
-                            {{ test.ping|floatformat:2 }}
-                            ms
-
-                        {% else %}
-
-                            —
-
-                        {% endif %}
-
-                    </td>
-
-                    <td>
-
-                        {% if test.packet_loss != None %}
-
-                            {{ test.packet_loss|floatformat:1 }}%
-
-                        {% else %}
-
-                            —
-
-                        {% endif %}
-
-                    </td>
-
-                </tr>
-
-                {% empty %}
-
-                <tr>
-
-                    <td
-                        colspan="5"
-                        class="empty-message"
+        <form method="get" action="">
+            <label for="device_id">Device:</label>
+
+            <select name="device_id" id="device_id">
+                <option value="">Select a device</option>
+
+                {% for device in devices %}
+                    <option
+                        value="{{ device.device_id }}"
+                        {% if selected_device and selected_device.device_id == device.device_id %}selected{% endif %}
                     >
-                        No tests recorded yet.
-                    </td>
-
-                </tr>
-
+                        {{ device.name }}
+                    </option>
                 {% endfor %}
-
-            </tbody>
-
-        </table>
-
-    </div>
-
-</div>
-
-</div>
-
-<!-- =====================================================
-     INITIAL CHART DATA
-====================================================== -->
-
-{{ labels|json_script:"labels-data" }}
-
-{{ download_data|json_script:"download-data" }}
-
-{{ upload_data|json_script:"upload-data" }}
-
-{{ ping_data|json_script:"ping-data" }}
-
-<script>
-
-    // =====================================================
-    // GET JSON DATA
-    // =====================================================
-
-    function getData(id) {
-
-        const element =
-            document.getElementById(id);
-
-        if (!element) {
-            return [];
-        }
-
-        try {
-
-            return JSON.parse(
-                element.textContent
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Chart data error:",
-                error
-            );
-
-            return [];
-
-        }
-
-    }
-
-
-    let labels =
-        getData("labels-data");
-
-    let downloadData =
-        getData("download-data");
-
-    let uploadData =
-        getData("upload-data");
-
-    let pingData =
-        getData("ping-data");
-
-
-    // =====================================================
-    // CHART
-    // =====================================================
-
-    const chart =
-        new Chart(
-            document.getElementById(
-                "bandwidthChart"
-            ),
-            {
-
-                type: "line",
-
-                data: {
-
-                    labels: labels,
-
-                    datasets: [
-
-                        {
-                            label:
-                                "Download (Mbps)",
-
-                            data:
-                                downloadData,
-
-                            tension:
-                                0.3,
-
-                            borderWidth:
-                                2,
-
-                            pointRadius:
-                                2
-                        },
-
-                        {
-                            label:
-                                "Upload (Mbps)",
-
-                            data:
-                                uploadData,
-
-                            tension:
-                                0.3,
-
-                            borderWidth:
-                                2,
-
-                            pointRadius:
-                                2
-                        },
-
-                        {
-                            label:
-                                "Speed Test Ping (ms)",
-
-                            data:
-                                pingData,
-
-                            tension:
-                                0.3,
-
-                            borderWidth:
-                                2,
-
-                            pointRadius:
-                                2
-                        }
-
-                    ]
-
-                },
-
-                options: {
-
-                    responsive:
-                        true,
-
-                    maintainAspectRatio:
-                        false,
-
-                    interaction: {
-
-                        mode:
-                            "index",
-
-                        intersect:
-                            false
-
-                    },
-
-                    plugins: {
-
-                        legend: {
-
-                            display:
-                                true
-
-                        }
-
-                    },
-
-                    scales: {
-
-                        y: {
-
-                            beginAtZero:
-                                true,
-
-                            title: {
-
-                                display:
-                                    true,
-
-                                text:
-                                    "Value"
-
-                            }
-
-                        },
-
-                        x: {
-
-                            title: {
-
-                                display:
-                                    true,
-
-                                text:
-                                    "Time"
-
-                            }
-
-                        }
-
-                    }
-
-                }
-
-            }
-        );
-
-
-    // =====================================================
-    // FORMAT IST DATE
-    // =====================================================
-
-    function formatISTDate(timestamp) {
-
-        if (!timestamp) {
-            return "—";
-        }
-
-        const date =
-            new Date(timestamp);
-
-        if (
-            Number.isNaN(
-                date.getTime()
-            )
-        ) {
-            return "—";
-        }
-
-        return date.toLocaleString(
-            "en-IN",
-            {
-
-                timeZone:
-                    "Asia/Kolkata",
-
-                day:
-                    "2-digit",
-
-                month:
-                    "short",
-
-                year:
-                    "numeric",
-
-                hour:
-                    "2-digit",
-
-                minute:
-                    "2-digit",
-
-                second:
-                    "2-digit",
-
-                hour12:
-                    true
-
-            }
-        );
-
-    }
-
-
-    // =====================================================
-    // FORMAT IST TIME
-    // =====================================================
-
-    function formatISTTime(timestamp) {
-
-        if (!timestamp) {
-            return "—";
-        }
-
-        const date =
-            new Date(timestamp);
-
-        if (
-            Number.isNaN(
-                date.getTime()
-            )
-        ) {
-            return "—";
-        }
-
-        return date.toLocaleTimeString(
-            "en-IN",
-            {
-
-                timeZone:
-                    "Asia/Kolkata",
-
-                hour:
-                    "2-digit",
-
-                minute:
-                    "2-digit",
-
-                second:
-                    "2-digit",
-
-                hour12:
-                    true
-
-            }
-        );
-
-    }
-
-
-    // =====================================================
-    // BANDWIDTH COUNTDOWN
-    //
-    // Backend currently provides:
-    //
-    // next_bandwidth_test_seconds
-    //
-    // We convert that into an absolute browser timestamp.
-    //
-    // If your backend is changed to send:
-    //
-    // next_bandwidth_test
-    //
-    // this code supports that too.
-    // =====================================================
-
-    let nextBandwidthTestTimestamp = null;
-
-
-    function setNextBandwidthTestFromAPI(
-        monitor
-    ) {
-
-        if (!monitor) {
-            return;
-        }
-
-
-        // -------------------------------------------------
-        // PREFERRED:
-        // Absolute timestamp
-        // -------------------------------------------------
-
-        if (
-            monitor.next_bandwidth_test
-        ) {
-
-            const timestamp =
-                new Date(
-                    monitor.next_bandwidth_test
-                );
-
-            if (
-                !Number.isNaN(
-                    timestamp.getTime()
-                )
-            ) {
-
-                nextBandwidthTestTimestamp =
-                    timestamp.getTime();
-
-                return;
-
-            }
-
-        }
-
-
-        // -------------------------------------------------
-        // CURRENT API:
-        // Seconds remaining
-        // -------------------------------------------------
-
-        if (
-            monitor.next_bandwidth_test_seconds !== null &&
-            monitor.next_bandwidth_test_seconds !== undefined
-        ) {
-
-            const seconds =
-                Number(
-                    monitor.next_bandwidth_test_seconds
-                );
-
-            if (
-                Number.isFinite(seconds)
-                && seconds >= 0
-            ) {
-
-                nextBandwidthTestTimestamp =
-                    Date.now() +
-                    (seconds * 1000);
-
-            }
-
-        }
-
-    }
-
-
-    function updateCountdownDisplay() {
-
-        const element =
-            document.getElementById(
-                "next-bandwidth-test"
-            );
-
-        if (!element) {
-            return;
-        }
-
-
-        if (
-            nextBandwidthTestTimestamp === null
-        ) {
-
-            element.textContent =
-                "Not scheduled";
-
-            return;
-
-        }
-
-
-        const now =
-            Date.now();
-
-
-        const remainingMilliseconds =
-            nextBandwidthTestTimestamp - now;
-
-
-        if (
-            remainingMilliseconds <= 0
-        ) {
-
-            element.textContent =
-                "Starting soon";
-
-            return;
-
-        }
-
-
-        const remainingSeconds =
-            Math.ceil(
-                remainingMilliseconds / 1000
-            );
-
-
-        const minutes =
-            Math.floor(
-                remainingSeconds / 60
-            );
-
-
-        const seconds =
-            remainingSeconds % 60;
-
-
-        if (minutes > 0) {
-
-            element.textContent =
-                `in ${minutes}m ${seconds}s`;
-
-        } else {
-
-            element.textContent =
-                `in ${seconds}s`;
-
-        }
-
-    }
-
-
-    // =====================================================
-    // UPDATE COUNTDOWN EVERY SECOND
-    // =====================================================
-
-    setInterval(
-        updateCountdownDisplay,
-        1000
-    );
-
-
-    // =====================================================
-    // MONITOR STATUS
-    // =====================================================
-
-    function updateMonitorStatus(
-        monitor
-    ) {
-
-        const element =
-            document.getElementById(
-                "monitor-status"
-            );
-
-        if (!element) {
-            return;
-        }
-
-        if (!monitor) {
-
-            element.textContent =
-                "Checking...";
-
-            return;
-
-        }
-
-
-        /*
-         * Backend may provide either:
-         *
-         * status: "running"
-         *
-         * OR
-         *
-         * running: true
-         *
-         */
-
-        const isRunning =
-            monitor.status === "running"
-            || monitor.running === true;
-
-
-        if (isRunning) {
-
-            element.textContent =
-                "● Running";
-
-        } else {
-
-            element.textContent =
-                "● Monitor unavailable";
-
-        }
-
-    }
-
-
-    // =====================================================
-    // UPDATE RECENT TESTS
-    // =====================================================
-
-    function updateRecentTests(
-        tests
-    ) {
-
-        const tbody =
-            document.getElementById(
-                "recent-tests-body"
-            );
-
-        if (!tbody) {
-            return;
-        }
-
-
-        if (
-            !tests ||
-            tests.length === 0
-        ) {
-
-            tbody.innerHTML = `
-
-                <tr>
-
-                    <td
-                        colspan="5"
-                        class="empty-message"
-                    >
-                        No tests recorded yet.
-                    </td>
-
-                </tr>
-
-            `;
-
-            return;
-
-        }
-
-
-        tbody.innerHTML =
-            tests.map(
-                test => {
-
-                    const time =
-                        formatISTDate(
-                            test.timestamp
-                        );
-
-
-                    const download =
-                        test.download !== null &&
-                        test.download !== undefined
-
-                            ? Number(
-                                test.download
-                            ).toFixed(2) +
-                              " Mbps"
-
-                            : "—";
-
-
-                    const upload =
-                        test.upload !== null &&
-                        test.upload !== undefined
-
-                            ? Number(
-                                test.upload
-                            ).toFixed(2) +
-                              " Mbps"
-
-                            : "—";
-
-
-                    const ping =
-                        test.speed_test_ping !== null &&
-                        test.speed_test_ping !== undefined
-
-                            ? Number(
-                                test.speed_test_ping
-                            ).toFixed(2) +
-                              " ms"
-
-                            : "—";
-
-
-                    const packetLoss =
-                        test.packet_loss !== null &&
-                        test.packet_loss !== undefined
-
-                            ? Number(
-                                test.packet_loss
-                            ).toFixed(1) +
-                              "%"
-
-                            : "—";
-
-
-                    return `
-
+            </select>
+
+            <button class="primary" type="submit">View</button>
+        </form>
+    </section>
+
+    {% if not devices %}
+        <section class="panel">
+            <h2>No devices registered</h2>
+            <p class="muted">
+                No monitoring devices are linked to your account yet.
+                A device must be registered and its Windows agent configured
+                before network data will appear here.
+            </p>
+        </section>
+    {% elif not selected_device %}
+        <section class="panel">
+            <h2>Select a device</h2>
+            <p class="muted">
+                Choose one of your devices above to view its network data.
+            </p>
+        </section>
+    {% else %}
+
+        <section class="cards">
+            <article class="card">
+                <h3>Latest Download</h3>
+                <div class="metric">
+                    {% if latest and latest.download_speed != None %}
+                        {{ latest.download_speed|floatformat:2 }}
+                    {% else %}—{% endif %}
+                </div>
+                <span class="unit">Mbps</span>
+            </article>
+
+            <article class="card">
+                <h3>Latest Upload</h3>
+                <div class="metric">
+                    {% if latest and latest.upload_speed != None %}
+                        {{ latest.upload_speed|floatformat:2 }}
+                    {% else %}—{% endif %}
+                </div>
+                <span class="unit">Mbps</span>
+            </article>
+
+            <article class="card">
+                <h3>Average Download Today</h3>
+                <div class="metric">
+                    {% if statistics.avg_download != None %}
+                        {{ statistics.avg_download|floatformat:2 }}
+                    {% else %}—{% endif %}
+                </div>
+                <span class="unit">Mbps</span>
+            </article>
+
+            <article class="card">
+                <h3>Average Upload Today</h3>
+                <div class="metric">
+                    {% if statistics.avg_upload != None %}
+                        {{ statistics.avg_upload|floatformat:2 }}
+                    {% else %}—{% endif %}
+                </div>
+                <span class="unit">Mbps</span>
+            </article>
+
+            <article class="card">
+                <h3>Average Ping Today</h3>
+                <div class="metric">
+                    {% if statistics.avg_ping != None %}
+                        {{ statistics.avg_ping|floatformat:2 }}
+                    {% else %}—{% endif %}
+                </div>
+                <span class="unit">ms</span>
+            </article>
+
+            <article class="card">
+                <h3>Network Connection</h3>
+                <div>
+                    <span id="connection-status"
+                          class="status {% if health and health.internet_connected %}healthy{% else %}unknown{% endif %}">
+                        {% if health %}
+                            {% if health.internet_connected %}Connected{% else %}Disconnected{% endif %}
+                        {% else %}
+                            No data
+                        {% endif %}
+                    </span>
+                </div>
+                <p class="muted">
+                    Monitor:
+                    <strong id="monitor-status">{{ monitor_status|default:"unavailable" }}</strong>
+                </p>
+            </article>
+        </section>
+
+        <section class="panels">
+            <article class="panel">
+                <h2>Download and Upload History</h2>
+                <div class="chart-container">
+                    <canvas id="bandwidth-chart"></canvas>
+                </div>
+            </article>
+
+            <article class="panel">
+                <h2>Ping History</h2>
+                <div class="chart-container">
+                    <canvas id="ping-chart"></canvas>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel" style="margin-bottom: 22px;">
+            <h2>Current Network Details</h2>
+
+            <div class="details">
+                <div>
+                    <div class="detail-label">Device</div>
+                    <div class="detail-value">{{ selected_device.name }}</div>
+                </div>
+
+                <div>
+                    <div class="detail-label">Wi-Fi Network</div>
+                    <div class="detail-value" id="wifi-ssid">
+                        {{ health.ssid|default:"—" }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="detail-label">Wi-Fi Signal</div>
+                    <div class="detail-value" id="wifi-signal">
+                        {{ health.wifi_signal|default:"—" }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="detail-label">Wi-Fi Link Speed</div>
+                    <div class="detail-value" id="wifi-link-speed">
+                        {{ health.wifi_link_speed|default:"—" }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="detail-label">Local IP</div>
+                    <div class="detail-value" id="local-ip">
+                        {{ health.local_ip|default:"—" }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="detail-label">Gateway</div>
+                    <div class="detail-value" id="gateway">
+                        {{ health.gateway|default:"—" }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="detail-label">Packet Loss</div>
+                    <div class="detail-value" id="packet-loss">
+                        {% if health and health.packet_loss != None %}
+                            {{ health.packet_loss|floatformat:2 }}%
+                        {% else %}—{% endif %}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="detail-label">Last Health Update</div>
+                    <div class="detail-value" id="health-timestamp">
+                        {% if last_health_check %}{{ last_health_check|date:"d M Y, H:i:s" }}{% else %}—{% endif %}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="detail-label">Last Successful Check</div>
+                    <div class="detail-value">
+                        {% if last_successful_check %}{{ last_successful_check|date:"d M Y, H:i:s" }}{% else %}—{% endif %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Recent Bandwidth Tests</h2>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
                         <tr>
-
-                            <td>
-                                ${time}
-                            </td>
-
-                            <td>
-                                ${download}
-                            </td>
-
-                            <td>
-                                ${upload}
-                            </td>
-
-                            <td>
-                                ${ping}
-                            </td>
-
-                            <td>
-                                ${packetLoss}
-                            </td>
-
+                            <th>Time</th>
+                            <th>Download (Mbps)</th>
+                            <th>Upload (Mbps)</th>
+                            <th>Ping (ms)</th>
+                            <th>Packet Loss</th>
+                            <th>Wi-Fi</th>
                         </tr>
-
-                    `;
-
-                }
-            ).join("");
-
-    }
-
-
-    // =====================================================
-    // UPDATE CHART
-    // =====================================================
-
-    function updateChart(
-        tests
-    ) {
-
-        if (
-            !tests ||
-            tests.length === 0
-        ) {
-            return;
-        }
-
-
-        const chartTests =
-            [...tests].reverse();
-
-
-        const newLabels =
-            chartTests.map(
-                test => {
-
-                    const date =
-                        new Date(
-                            test.timestamp
-                        );
-
-                    return date.toLocaleTimeString(
-                        "en-IN",
-                        {
-
-                            timeZone:
-                                "Asia/Kolkata",
-
-                            hour:
-                                "2-digit",
-
-                            minute:
-                                "2-digit",
-
-                            second:
-                                "2-digit",
-
-                            hour12:
-                                false
-
-                        }
-                    );
-
-                }
-            );
-
-
-        const newDownloads =
-            chartTests.map(
-                test =>
-                    test.download
-            );
-
-
-        const newUploads =
-            chartTests.map(
-                test =>
-                    test.upload
-            );
-
-
-        const newPings =
-            chartTests.map(
-                test =>
-                    test.speed_test_ping
-            );
-
-
-        chart.data.labels =
-            newLabels;
-
-        chart.data.datasets[0].data =
-            newDownloads;
-
-        chart.data.datasets[1].data =
-            newUploads;
-
-        chart.data.datasets[2].data =
-            newPings;
-
-
-        chart.update(
-            "none"
-        );
-
-    }
-
-
-    // =====================================================
-    // UPDATE TODAY'S STATISTICS
-    // =====================================================
-
-    function updateStatistics(
-        statistics
-    ) {
-
-        if (!statistics) {
-            return;
-        }
-
-
-        function setValue(
-            id,
-            value
-        ) {
-
-            const element =
-                document.getElementById(id);
-
-            if (!element) {
-                return;
-            }
-
-            element.textContent =
-                value !== null &&
-                value !== undefined
-
-                    ? Number(value).toFixed(2)
-
-                    : "—";
-
-        }
-
-
-        setValue(
-            "avg-download",
-            statistics.avg_download
-        );
-
-
-        setValue(
-            "max-download",
-            statistics.max_download
-        );
-
-
-        setValue(
-            "min-download",
-            statistics.min_download
-        );
-
-
-        setValue(
-            "avg-upload",
-            statistics.avg_upload
-        );
-
-
-        setValue(
-            "avg-ping",
-            statistics.avg_ping
-        );
-
-    }
-
-
-    // =====================================================
-    // UPDATE LIVE STATUS
-    // =====================================================
-
-    async function updateLiveStatus() {
-
-        try {
-
-            const response =
-                await fetch(
-                    "/api/live-status/",
-                    {
-
-                        cache:
-                            "no-store",
-
-                        headers: {
-
-                            "Cache-Control":
-                                "no-cache",
-
-                            "Pragma":
-                                "no-cache"
-
-                        }
-
-                    }
-                );
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    `API request failed: ${response.status}`
-                );
-
-            }
-
-
-            const apiData =
-                await response.json();
-
-
-            if (
-                !apiData.available
-            ) {
-
-                console.warn(
-                    "Live data unavailable:",
-                    apiData.message
-                );
-
-                return;
-
-            }
-
-
-            const health =
-                apiData.health || {};
-
-            const bandwidth =
-                apiData.bandwidth || {};
-
-            const monitor =
-                apiData.monitor || {};
-
-            const quality =
-                apiData.connection_quality || {};
-
-
-            // =================================================
-            // MONITOR
-            // =================================================
-
-            updateMonitorStatus(
-                monitor
-            );
-
-
-            // =================================================
-            // LAST HEALTH CHECK
-            // =================================================
-
-            document.getElementById(
-                "last-health-check"
-            ).textContent =
-                formatISTDate(
-                    monitor.last_health_check
-                );
-
-
-            // =================================================
-            // NEXT BANDWIDTH TEST
-            // =================================================
-
-            setNextBandwidthTestFromAPI(
-                monitor
-            );
-
-
-            // =================================================
-            // NETWORK STATUS
-            // =================================================
-
-            const status =
-                document.getElementById(
-                    "network-status"
-                );
-
-            const dot =
-                document.getElementById(
-                    "status-dot"
-                );
-
-
-            if (
-                health.status ===
-                "offline"
-            ) {
-
-                status.textContent =
-                    "Offline";
-
-                dot.className =
-                    "status-dot offline";
-
-            }
-
-            else if (
-                health.status ===
-                "warning"
-            ) {
-
-                status.textContent =
-                    "Warning";
-
-                dot.className =
-                    "status-dot warning";
-
-            }
-
-            else if (
-                health.status ===
-                "healthy"
-            ) {
-
-                status.textContent =
-                    "Healthy";
-
-                dot.className =
-                    "status-dot healthy";
-
-            }
-
-            else {
-
-                status.textContent =
-                    "Checking...";
-
-                dot.className =
-                    "status-dot";
-
-            }
-
-
-            // =================================================
-            // STATUS TIME
-            // =================================================
-
-            document.getElementById(
-                "status-time"
-            ).textContent =
-
-                health.internet_connected === true
-
-                    ? "Last network check: " +
-                      formatISTTime(
-                          health.timestamp
-                      )
-
-                    : "Internet connection is unavailable.";
-
-
-            // =================================================
-            // LIVE PING
-            // =================================================
-
-            document.getElementById(
-                "live-ping"
-            ).textContent =
-
-                health.live_latency !== null &&
-                health.live_latency !== undefined
-
-                    ? Number(
-                        health.live_latency
-                      ).toFixed(2) +
-                      " ms"
-
-                    : "Offline";
-
-
-            // =================================================
-            // LIVE PACKET LOSS
-            // =================================================
-
-            document.getElementById(
-                "live-packet-loss"
-            ).textContent =
-
-                health.packet_loss !== null &&
-                health.packet_loss !== undefined
-
-                    ? Number(
-                        health.packet_loss
-                      ).toFixed(1) +
-                      "%"
-
-                    : "—";
-
-
-            // =================================================
-            // CONNECTION QUALITY
-            // =================================================
-
-            document.getElementById(
-                "connection-quality"
-            ).textContent =
-                quality.quality ||
-                "—";
-
-
-            document.getElementById(
-                "quality-latency"
-            ).textContent =
-
-                quality.latency !== null &&
-                quality.latency !== undefined
-
-                    ? Number(
-                        quality.latency
-                      ).toFixed(2)
-
-                    : "—";
-
-
-            document.getElementById(
-                "quality-packet-loss"
-            ).textContent =
-
-                quality.packet_loss !== null &&
-                quality.packet_loss !== undefined
-
-                    ? Number(
-                        quality.packet_loss
-                      ).toFixed(1)
-
-                    : "—";
-
-
-            document.getElementById(
-                "quality-download"
-            ).textContent =
-
-                quality.download !== null &&
-                quality.download !== undefined
-
-                    ? Number(
-                        quality.download
-                      ).toFixed(2)
-
-                    : "—";
-
-
-            document.getElementById(
-                "quality-upload"
-            ).textContent =
-
-                quality.upload !== null &&
-                quality.upload !== undefined
-
-                    ? Number(
-                        quality.upload
-                      ).toFixed(2)
-
-                    : "—";
-
-
-            // =================================================
-            // CURRENT PERFORMANCE
-            // =================================================
-
-            document.getElementById(
-                "latest-download"
-            ).textContent =
-
-                bandwidth.download !== null &&
-                bandwidth.download !== undefined
-
-                    ? Number(
-                        bandwidth.download
-                      ).toFixed(2)
-
-                    : "—";
-
-
-            document.getElementById(
-                "latest-upload"
-            ).textContent =
-
-                bandwidth.upload !== null &&
-                bandwidth.upload !== undefined
-
-                    ? Number(
-                        bandwidth.upload
-                      ).toFixed(2)
-
-                    : "—";
-
-
-            document.getElementById(
-                "latest-bandwidth-ping"
-            ).textContent =
-
-                bandwidth.speed_test_ping !== null &&
-                bandwidth.speed_test_ping !== undefined
-
-                    ? Number(
-                        bandwidth.speed_test_ping
-                      ).toFixed(2)
-
-                    : "—";
-
-
-            // =================================================
-            // NETWORK INFORMATION
-            // =================================================
-
-            document.getElementById(
-                "live-ssid"
-            ).textContent =
-                health.ssid ||
-                "Unknown";
-
-
-            document.getElementById(
-                "live-signal"
-            ).textContent =
-                health.wifi_signal ||
-                "Unknown";
-
-
-            document.getElementById(
-                "live-link-speed"
-            ).textContent =
-                health.wifi_link_speed ||
-                "Unknown";
-
-
-            document.getElementById(
-                "live-local-ip"
-            ).textContent =
-                health.local_ip ||
-                "Unknown";
-
-
-            document.getElementById(
-                "live-gateway"
-            ).textContent =
-                health.gateway ||
-                "Unknown";
-
-
-            // =================================================
-            // STATISTICS
-            // =================================================
-
-            updateStatistics(
-                apiData.statistics
-            );
-
-
-            // =================================================
-            // RECENT TESTS
-            // =================================================
-
-            updateRecentTests(
-                apiData.recent_tests
-            );
-
-
-            // =================================================
-            // CHART
-            // =================================================
-
-            updateChart(
-                apiData.recent_tests
-            );
-
-
-            // =================================================
-            // ALERT
-            // =================================================
-
-            const alertBox =
-                document.getElementById(
-                    "network-alert"
-                );
-
-            const alertMessage =
-                document.getElementById(
-                    "alert-message"
-                );
-
-
-            if (
-                health.status ===
-                "offline"
-            ) {
-
-                alertBox.style.display =
-                    "block";
-
-
-                let message =
-                    "Internet connection is unavailable.";
-
-
-                if (
-                    monitor.last_successful_check
-                ) {
-
-                    message +=
-                        " Last successful check: " +
-                        formatISTTime(
-                            monitor.last_successful_check
-                        );
-
-                }
-
-
-                alertMessage.textContent =
-                    message;
-
-            }
-
-            else if (
-                health.alert_message &&
-                health.alert_message.trim()
-            ) {
-
-                alertBox.style.display =
-                    "block";
-
-                alertMessage.textContent =
-                    health.alert_message;
-
-            }
-
-            else {
-
-                alertBox.style.display =
-                    "none";
-
-                alertMessage.textContent =
-                    "";
-
-            }
-
-        }
-
-        catch (error) {
-
-            console.error(
-                "Live status error:",
-                error
-            );
-
-            document.getElementById(
-                "monitor-status"
-            ).textContent =
-                "Checking...";
-
-            /*
-             * Do NOT reset the countdown.
-             */
-
-        }
-
-    }
-
-
-    // =====================================================
-    // INITIAL UPDATE
-    // =====================================================
-
-    updateLiveStatus();
-
-
-    // =====================================================
-    // LIVE API REFRESH
-    //
-    // Health monitor itself runs every 5 seconds.
-    // We don't need to hit the API every second.
-    //
-    // Countdown runs independently every second.
-    // =====================================================
-
-    setInterval(
-        updateLiveStatus,
-        5000
+                    </thead>
+
+                    <tbody>
+                        {% for test in recent_tests %}
+                            <tr>
+                                <td>{{ test.timestamp|date:"d M Y, H:i:s" }}</td>
+                                <td>{{ test.download_speed|floatformat:2 }}</td>
+                                <td>{{ test.upload_speed|floatformat:2 }}</td>
+                                <td>
+                                    {% if test.ping != None %}{{ test.ping|floatformat:2 }}{% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {% if test.packet_loss != None %}{{ test.packet_loss|floatformat:2 }}%{% else %}—{% endif %}
+                                </td>
+                                <td>{{ test.ssid|default:"—" }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" class="empty">
+                                    No bandwidth tests have been received for this device.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="muted">
+                Last bandwidth test:
+                {% if latest %}{{ latest.timestamp|date:"d M Y, H:i:s" }}{% else %}No tests yet{% endif %}
+            </p>
+        </section>
+
+        {{ labels|json_script:"chart-labels" }}
+        {{ download_data|json_script:"download-data" }}
+        {{ upload_data|json_script:"upload-data" }}
+        {{ ping_data|json_script:"ping-data" }}
+
+    {% endif %}
+</main>
+
+{% if selected_device %}
+<script>
+    const labels = JSON.parse(
+        document.getElementById("chart-labels").textContent
+    );
+    const downloadData = JSON.parse(
+        document.getElementById("download-data").textContent
+    );
+    const uploadData = JSON.parse(
+        document.getElementById("upload-data").textContent
+    );
+    const pingData = JSON.parse(
+        document.getElementById("ping-data").textContent
     );
 
+    const bandwidthChart = new Chart(
+        document.getElementById("bandwidth-chart"),
+        {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: "Download (Mbps)",
+                        data: downloadData,
+                        tension: 0.25
+                    },
+                    {
+                        label: "Upload (Mbps)",
+                        data: uploadData,
+                        tension: 0.25
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: "index" }
+            }
+        }
+    );
+
+    const pingChart = new Chart(
+        document.getElementById("ping-chart"),
+        {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: "Ping (ms)",
+                        data: pingData,
+                        tension: 0.25
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: "index" }
+            }
+        }
+    );
+
+    // Refresh the device's current health without reloading the dashboard.
+    async function refreshLiveStatus() {
+        try {
+            const url = new URL(
+                "{% url 'live_status' %}",
+                window.location.origin
+            );
+            url.searchParams.set(
+                "device_id",
+                "{{ selected_device.device_id|escapejs }}"
+            );
+
+            const response = await fetch(url, {
+                method: "GET",
+                credentials: "same-origin",
+                headers: { "Accept": "application/json" }
+            });
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const health = data.health || {};
+            const latest = data.latest_bandwidth || data.latest || {};
+
+            const status = document.getElementById("connection-status");
+            if (typeof health.internet_connected === "boolean") {
+                status.textContent = health.internet_connected
+                    ? "Connected"
+                    : "Disconnected";
+                status.className = "status " +
+                    (health.internet_connected ? "healthy" : "unhealthy");
+            }
+
+            const monitorStatus = document.getElementById("monitor-status");
+            if (data.monitor_status) {
+                monitorStatus.textContent = data.monitor_status;
+            }
+
+            const fields = {
+                "wifi-ssid": health.ssid,
+                "wifi-signal": health.wifi_signal,
+                "wifi-link-speed": health.wifi_link_speed,
+                "local-ip": health.local_ip,
+                "gateway": health.gateway
+            };
+
+            for (const [id, value] of Object.entries(fields)) {
+                if (value !== undefined && value !== null) {
+                    document.getElementById(id).textContent = value || "—";
+                }
+            }
+
+            if (health.packet_loss !== undefined &&
+                health.packet_loss !== null) {
+                document.getElementById("packet-loss").textContent =
+                    Number(health.packet_loss).toFixed(2) + "%";
+            }
+
+            if (health.timestamp) {
+                document.getElementById("health-timestamp").textContent =
+                    new Date(health.timestamp).toLocaleString();
+            }
+        } catch (error) {
+            console.error("Unable to refresh network status:", error);
+        }
+    }
+
+    refreshLiveStatus();
+    setInterval(refreshLiveStatus, 15000);
 </script>
-
+{% endif %}
 </body>
-
 </html>
