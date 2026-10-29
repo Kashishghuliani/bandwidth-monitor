@@ -33,5 +33,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Apply database migrations
+        run: python manage.py migrate --noinput
+
       - name: Check all monitoring targets
         run: python manage.py check_target_ips
