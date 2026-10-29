@@ -36,5 +36,10 @@ jobs:
       - name: Apply database migrations
         run: python manage.py migrate --noinput
 
+      - name: Verify monitoring database tables
+        run: |
+          python manage.py showmigrations monitor
+          python manage.py shell -c "from django.db import connection; print('Database:', connection.settings_dict['NAME']); print('Tables:', [t for t in connection.introspection.table_names() if t.startswith('monitor_')])"
+
       - name: Check all monitoring targets
         run: python manage.py check_target_ips
