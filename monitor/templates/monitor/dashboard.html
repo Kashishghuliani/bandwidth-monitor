@@ -144,6 +144,38 @@
         </p>
     </header>
 
+        {% if messages %}
+            {% for message in messages %}
+                <p>{{ message }}</p>
+            {% endfor %}
+        {% endif %}
+
+        <section class="panel">
+            <h2>Add a Monitoring Target</h2>
+            <form method="post">
+                {% csrf_token %}
+                <p>
+                    <label for="target_name">Name</label><br>
+                    <input id="target_name" type="text" name="name"
+                           maxlength="100" required>
+                </p>
+                <p>
+                    <label for="ip_address">Public IP address or hostname</label><br>
+                    <input id="ip_address" type="text" name="ip_address"
+                           maxlength="253" placeholder="example.com" required>
+                </p>
+                <p>
+                    <label for="check_type">Check type</label><br>
+                    <select id="check_type" name="check_type">
+                        <option value="ping">Ping</option>
+                        <option value="https">HTTPS</option>
+                    </select>
+                </p>
+                <button type="submit">Add Target</button>
+            </form>
+        </section>
+
+
     <section class="panel">
         <h2>Target IP Status</h2>
 

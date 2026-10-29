@@ -75,7 +75,7 @@ class ScheduledIPCheckTests(TestCase):
 
     @patch("monitor.management.commands.check_target_ips.check_ip")
     def test_command_saves_successful_check(self, mock_check_ip):
-        mock_check_ip.return_value = (True, 25.5, "")
+        mock_check_ip.return_value = (True, 25.5, 0.0, "")
 
         call_command("check_target_ips")
 
@@ -91,6 +91,7 @@ class ScheduledIPCheckTests(TestCase):
         mock_check_ip.return_value = (
             False,
             None,
+            100.0,
             "Ping failed or timed out",
         )
 
