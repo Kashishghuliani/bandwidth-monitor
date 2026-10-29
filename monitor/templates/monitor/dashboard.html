@@ -1,613 +1,309 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bandwidth Monitor</title>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>IP Network Monitor</title>
 
     <style>
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f4f7fb;
+            padding: 24px;
+            background: #f4f6f9;
             color: #1f2937;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-            flex-wrap: wrap;
-            padding: 18px 5%;
-            background: #fff;
-            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 24px;
         }
 
-        header h1 { margin: 0; font-size: 23px; }
-
-        .user-area {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            flex-wrap: wrap;
+        h1 {
+            margin: 0 0 6px;
+            font-size: 28px;
         }
 
-        button, select, .button {
-            padding: 10px 13px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            background: white;
-            font-size: 14px;
+        h2 {
+            margin-top: 0;
+            font-size: 20px;
         }
 
-        button { cursor: pointer; }
-
-        .primary {
-            background: #2563eb;
-            color: white;
-            border-color: #2563eb;
+        .subtitle {
+            margin: 0;
+            color: #6b7280;
         }
 
-        main {
-            max-width: 1250px;
-            margin: 28px auto;
-            padding: 0 20px;
-        }
-
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-bottom: 22px;
-        }
-
-        .toolbar form {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .muted { color: #6b7280; font-size: 13px; }
-
-        .cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-            gap: 16px;
-            margin-bottom: 22px;
-        }
-
-        .card, .panel {
-            background: white;
-            padding: 20px;
-            border: 1px solid #e5e7eb;
+        .panel {
+            background: #ffffff;
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
 
-        .card h3 {
-            margin: 0 0 14px;
-            color: #6b7280;
-            font-size: 13px;
-            font-weight: 600;
+        .table-wrapper {
+            overflow-x: auto;
         }
-
-        .metric {
-            font-size: 27px;
-            font-weight: 700;
-            overflow-wrap: anywhere;
-        }
-
-        .unit { font-size: 13px; color: #6b7280; }
-
-        .status {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 20px;
-            background: #e5e7eb;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .status.healthy {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .status.unhealthy {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .status.unknown {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .panels {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 18px;
-            margin-bottom: 22px;
-        }
-
-        .panel h2 {
-            margin: 0 0 18px;
-            font-size: 17px;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 280px;
-        }
-
-        .details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
-        }
-
-        .detail-label {
-            margin-bottom: 6px;
-            color: #6b7280;
-            font-size: 12px;
-        }
-
-        .detail-value {
-            overflow-wrap: anywhere;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .table-wrap { overflow-x: auto; }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13px;
-            white-space: nowrap;
+            min-width: 650px;
         }
 
         th, td {
             padding: 13px 12px;
-            text-align: left;
             border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            white-space: nowrap;
         }
 
         th {
             background: #f9fafb;
-            color: #6b7280;
+            color: #4b5563;
+            font-size: 13px;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: capitalize;
+        }
+
+        .healthy {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .offline {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .unknown {
+            background: #e5e7eb;
+            color: #374151;
         }
 
         .empty {
-            padding: 24px 10px;
+            padding: 24px 12px;
             text-align: center;
             color: #6b7280;
         }
 
+        .footer-note {
+            color: #6b7280;
+            font-size: 13px;
+            margin-top: 14px;
+        }
+
         @media (max-width: 600px) {
-            header { padding: 16px 20px; }
-            main { margin-top: 20px; padding: 0 12px; }
-            .card, .panel { padding: 16px; }
+            body {
+                padding: 14px;
+            }
+
+            h1 {
+                font-size: 23px;
+            }
+
+            .panel {
+                padding: 14px;
+            }
         }
     </style>
 </head>
 
 <body>
-<header>
-    <h1>Bandwidth Monitor</h1>
+<div class="container">
 
-    <div class="user-area">
-        <span class="muted">
-            Signed in as {{ request.user.username }}
-        </span>
+    <header>
+        <h1>IP Network Monitor</h1>
+        <p class="subtitle">
+            Scheduled connectivity checks for configured IP addresses
+        </p>
+    </header>
 
-        <form method="post" action="{% url 'logout' %}">
-            {% csrf_token %}
-            <button type="submit">Sign out</button>
-        </form>
-    </div>
-</header>
+    <section class="panel">
+        <h2>Target IP Status</h2>
 
-<main>
-    <section class="toolbar">
-        <div>
-            <h2 style="margin: 0 0 6px;">Network Dashboard</h2>
-            <div class="muted">
-                View network health and bandwidth for your registered devices.
-            </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>IP Address</th>
+                        <th>Enabled</th>
+                        <th>Latest Status</th>
+                        <th>Latency</th>
+                        <th>Packet Loss</th>
+                        <th>Last Checked</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                {% for item in latest_results %}
+                    <tr>
+                        <td>{{ item.target.name }}</td>
+                        <td>{{ item.target.ip_address }}</td>
+
+                        <td>
+                            {% if item.target.is_active %}
+                                Yes
+                            {% else %}
+                                No
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.latest %}
+                                <span class="status {{ item.latest.status }}">
+                                    {{ item.latest.get_status_display }}
+                                </span>
+                            {% else %}
+                                <span class="status unknown">Not checked</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.latest and item.latest.latency_ms != None %}
+                                {{ item.latest.latency_ms|floatformat:2 }} ms
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.latest and item.latest.packet_loss_percent != None %}
+                                {{ item.latest.packet_loss_percent|floatformat:1 }}%
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.latest %}
+                                {{ item.latest.checked_at|date:"d M Y, H:i:s" }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="empty">
+                            No target IPs configured yet.
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
         </div>
 
-        <form method="get" action="">
-            <label for="device_id">Device:</label>
-
-            <select name="device_id" id="device_id">
-                <option value="">Select a device</option>
-
-                {% for device in devices %}
-                    <option
-                        value="{{ device.device_id }}"
-                        {% if selected_device and selected_device.device_id == device.device_id %}selected{% endif %}
-                    >
-                        {{ device.name }}
-                    </option>
-                {% endfor %}
-            </select>
-
-            <button class="primary" type="submit">View</button>
-        </form>
+        <p class="footer-note">
+            Results update when the scheduled check command runs.
+        </p>
     </section>
 
-    {% if not devices %}
-        <section class="panel">
-            <h2>No devices registered</h2>
-            <p class="muted">
-                No monitoring devices are linked to your account yet.
-                A device must be registered and its Windows agent configured
-                before network data will appear here.
-            </p>
-        </section>
-    {% elif not selected_device %}
-        <section class="panel">
-            <h2>Select a device</h2>
-            <p class="muted">
-                Choose one of your devices above to view its network data.
-            </p>
-        </section>
-    {% else %}
+    <section class="panel">
+        <h2>Recent Check History</h2>
 
-        <section class="cards">
-            <article class="card">
-                <h3>Latest Download</h3>
-                <div class="metric">
-                    {% if latest and latest.download_speed != None %}
-                        {{ latest.download_speed|floatformat:2 }}
-                    {% else %}—{% endif %}
-                </div>
-                <span class="unit">Mbps</span>
-            </article>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Target</th>
+                        <th>IP Address</th>
+                        <th>Status</th>
+                        <th>Reachable</th>
+                        <th>Latency</th>
+                        <th>Packet Loss</th>
+                        <th>Checked At</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
 
-            <article class="card">
-                <h3>Latest Upload</h3>
-                <div class="metric">
-                    {% if latest and latest.upload_speed != None %}
-                        {{ latest.upload_speed|floatformat:2 }}
-                    {% else %}—{% endif %}
-                </div>
-                <span class="unit">Mbps</span>
-            </article>
+                <tbody>
+                {% for result in recent_results %}
+                    <tr>
+                        <td>{{ result.target.name }}</td>
+                        <td>{{ result.target.ip_address }}</td>
 
-            <article class="card">
-                <h3>Average Download Today</h3>
-                <div class="metric">
-                    {% if statistics.avg_download != None %}
-                        {{ statistics.avg_download|floatformat:2 }}
-                    {% else %}—{% endif %}
-                </div>
-                <span class="unit">Mbps</span>
-            </article>
+                        <td>
+                            <span class="status {{ result.status }}">
+                                {{ result.get_status_display }}
+                            </span>
+                        </td>
 
-            <article class="card">
-                <h3>Average Upload Today</h3>
-                <div class="metric">
-                    {% if statistics.avg_upload != None %}
-                        {{ statistics.avg_upload|floatformat:2 }}
-                    {% else %}—{% endif %}
-                </div>
-                <span class="unit">Mbps</span>
-            </article>
+                        <td>
+                            {% if result.is_reachable %}
+                                Yes
+                            {% else %}
+                                No
+                            {% endif %}
+                        </td>
 
-            <article class="card">
-                <h3>Average Ping Today</h3>
-                <div class="metric">
-                    {% if statistics.avg_ping != None %}
-                        {{ statistics.avg_ping|floatformat:2 }}
-                    {% else %}—{% endif %}
-                </div>
-                <span class="unit">ms</span>
-            </article>
+                        <td>
+                            {% if result.latency_ms != None %}
+                                {{ result.latency_ms|floatformat:2 }} ms
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
 
-            <article class="card">
-                <h3>Network Connection</h3>
-                <div>
-                    <span id="connection-status"
-                          class="status {% if health and health.internet_connected %}healthy{% else %}unknown{% endif %}">
-                        {% if health %}
-                            {% if health.internet_connected %}Connected{% else %}Disconnected{% endif %}
-                        {% else %}
-                            No data
-                        {% endif %}
-                    </span>
-                </div>
-                <p class="muted">
-                    Monitor:
-                    <strong id="monitor-status">{{ monitor_status|default:"unavailable" }}</strong>
-                </p>
-            </article>
-        </section>
+                        <td>
+                            {% if result.packet_loss_percent != None %}
+                                {{ result.packet_loss_percent|floatformat:1 }}%
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
 
-        <section class="panels">
-            <article class="panel">
-                <h2>Download and Upload History</h2>
-                <div class="chart-container">
-                    <canvas id="bandwidth-chart"></canvas>
-                </div>
-            </article>
+                        <td>
+                            {{ result.checked_at|date:"d M Y, H:i:s" }}
+                        </td>
 
-            <article class="panel">
-                <h2>Ping History</h2>
-                <div class="chart-container">
-                    <canvas id="ping-chart"></canvas>
-                </div>
-            </article>
-        </section>
+                        <td>
+                            {% if result.error_message %}
+                                {{ result.error_message|truncatechars:100 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="8" class="empty">
+                            No check results yet. Run the scheduled command
+                            to generate the first result.
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 
-        <section class="panel" style="margin-bottom: 22px;">
-            <h2>Current Network Details</h2>
-
-            <div class="details">
-                <div>
-                    <div class="detail-label">Device</div>
-                    <div class="detail-value">{{ selected_device.name }}</div>
-                </div>
-
-                <div>
-                    <div class="detail-label">Wi-Fi Network</div>
-                    <div class="detail-value" id="wifi-ssid">
-                        {{ health.ssid|default:"—" }}
-                    </div>
-                </div>
-
-                <div>
-                    <div class="detail-label">Wi-Fi Signal</div>
-                    <div class="detail-value" id="wifi-signal">
-                        {{ health.wifi_signal|default:"—" }}
-                    </div>
-                </div>
-
-                <div>
-                    <div class="detail-label">Wi-Fi Link Speed</div>
-                    <div class="detail-value" id="wifi-link-speed">
-                        {{ health.wifi_link_speed|default:"—" }}
-                    </div>
-                </div>
-
-                <div>
-                    <div class="detail-label">Local IP</div>
-                    <div class="detail-value" id="local-ip">
-                        {{ health.local_ip|default:"—" }}
-                    </div>
-                </div>
-
-                <div>
-                    <div class="detail-label">Gateway</div>
-                    <div class="detail-value" id="gateway">
-                        {{ health.gateway|default:"—" }}
-                    </div>
-                </div>
-
-                <div>
-                    <div class="detail-label">Packet Loss</div>
-                    <div class="detail-value" id="packet-loss">
-                        {% if health and health.packet_loss != None %}
-                            {{ health.packet_loss|floatformat:2 }}%
-                        {% else %}—{% endif %}
-                    </div>
-                </div>
-
-                <div>
-                    <div class="detail-label">Last Health Update</div>
-                    <div class="detail-value" id="health-timestamp">
-                        {% if last_health_check %}{{ last_health_check|date:"d M Y, H:i:s" }}{% else %}—{% endif %}
-                    </div>
-                </div>
-
-                <div>
-                    <div class="detail-label">Last Successful Check</div>
-                    <div class="detail-value">
-                        {% if last_successful_check %}{{ last_successful_check|date:"d M Y, H:i:s" }}{% else %}—{% endif %}
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="panel">
-            <h2>Recent Bandwidth Tests</h2>
-
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Download (Mbps)</th>
-                            <th>Upload (Mbps)</th>
-                            <th>Ping (ms)</th>
-                            <th>Packet Loss</th>
-                            <th>Wi-Fi</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {% for test in recent_tests %}
-                            <tr>
-                                <td>{{ test.timestamp|date:"d M Y, H:i:s" }}</td>
-                                <td>{{ test.download_speed|floatformat:2 }}</td>
-                                <td>{{ test.upload_speed|floatformat:2 }}</td>
-                                <td>
-                                    {% if test.ping != None %}{{ test.ping|floatformat:2 }}{% else %}—{% endif %}
-                                </td>
-                                <td>
-                                    {% if test.packet_loss != None %}{{ test.packet_loss|floatformat:2 }}%{% else %}—{% endif %}
-                                </td>
-                                <td>{{ test.ssid|default:"—" }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="6" class="empty">
-                                    No bandwidth tests have been received for this device.
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <p class="muted">
-                Last bandwidth test:
-                {% if latest %}{{ latest.timestamp|date:"d M Y, H:i:s" }}{% else %}No tests yet{% endif %}
-            </p>
-        </section>
-
-        {{ labels|json_script:"chart-labels" }}
-        {{ download_data|json_script:"download-data" }}
-        {{ upload_data|json_script:"upload-data" }}
-        {{ ping_data|json_script:"ping-data" }}
-
-    {% endif %}
-</main>
-
-{% if selected_device %}
-<script>
-    const labels = JSON.parse(
-        document.getElementById("chart-labels").textContent
-    );
-    const downloadData = JSON.parse(
-        document.getElementById("download-data").textContent
-    );
-    const uploadData = JSON.parse(
-        document.getElementById("upload-data").textContent
-    );
-    const pingData = JSON.parse(
-        document.getElementById("ping-data").textContent
-    );
-
-    const bandwidthChart = new Chart(
-        document.getElementById("bandwidth-chart"),
-        {
-            type: "line",
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: "Download (Mbps)",
-                        data: downloadData,
-                        tension: 0.25
-                    },
-                    {
-                        label: "Upload (Mbps)",
-                        data: uploadData,
-                        tension: 0.25
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { intersect: false, mode: "index" }
-            }
-        }
-    );
-
-    const pingChart = new Chart(
-        document.getElementById("ping-chart"),
-        {
-            type: "line",
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: "Ping (ms)",
-                        data: pingData,
-                        tension: 0.25
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { intersect: false, mode: "index" }
-            }
-        }
-    );
-
-    // Refresh the device's current health without reloading the dashboard.
-    async function refreshLiveStatus() {
-        try {
-            const url = new URL(
-                "{% url 'live_status' %}",
-                window.location.origin
-            );
-            url.searchParams.set(
-                "device_id",
-                "{{ selected_device.device_id|escapejs }}"
-            );
-
-            const response = await fetch(url, {
-                method: "GET",
-                credentials: "same-origin",
-                headers: { "Accept": "application/json" }
-            });
-
-            if (!response.ok) return;
-
-            const data = await response.json();
-            const health = data.health || {};
-            const latest = data.latest_bandwidth || data.latest || {};
-
-            const status = document.getElementById("connection-status");
-            if (typeof health.internet_connected === "boolean") {
-                status.textContent = health.internet_connected
-                    ? "Connected"
-                    : "Disconnected";
-                status.className = "status " +
-                    (health.internet_connected ? "healthy" : "unhealthy");
-            }
-
-            const monitorStatus = document.getElementById("monitor-status");
-            if (data.monitor_status) {
-                monitorStatus.textContent = data.monitor_status;
-            }
-
-            const fields = {
-                "wifi-ssid": health.ssid,
-                "wifi-signal": health.wifi_signal,
-                "wifi-link-speed": health.wifi_link_speed,
-                "local-ip": health.local_ip,
-                "gateway": health.gateway
-            };
-
-            for (const [id, value] of Object.entries(fields)) {
-                if (value !== undefined && value !== null) {
-                    document.getElementById(id).textContent = value || "—";
-                }
-            }
-
-            if (health.packet_loss !== undefined &&
-                health.packet_loss !== null) {
-                document.getElementById("packet-loss").textContent =
-                    Number(health.packet_loss).toFixed(2) + "%";
-            }
-
-            if (health.timestamp) {
-                document.getElementById("health-timestamp").textContent =
-                    new Date(health.timestamp).toLocaleString();
-            }
-        } catch (error) {
-            console.error("Unable to refresh network status:", error);
-        }
-    }
-
-    refreshLiveStatus();
-    setInterval(refreshLiveStatus, 15000);
-</script>
-{% endif %}
+</div>
 </body>
 </html>

@@ -1,182 +1,75 @@
 
-import uuid
-
-from django.conf import settings
 from django.db import models
 
 
-class Device(models.Model):
-    """A computer registered to a user for network monitoring."""
+class TargetIP(models.Model):
+    """An IP address that the scheduled monitor checks."""
 
-    device_id = models.UUIDField(
-        default=uuid.uuid4,
-        unique=True,
-        editable=False,
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="monitor_devices",
-    )
     name = models.CharField(max_length=100)
-    device_token_hash = models.CharField(
-        max_length=64,
-        unique=True,
+    ip_address = models.CharField(max_length=253, unique=True)
+
+    CHECK_TYPE_CHOICES = [
+        ("ping", "Ping"),
+        ("https", "HTTPS"),
+    ]
+
+    check_type = models.CharField(
+        max_length=10,
+        choices=CHECK_TYPE_CHOICES,
+        default="ping",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_seen = models.DateTimeField(null=True, blank=True)
+
     is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["name"]
+        verbose_name = "Target IP"
+        verbose_name_plural = "Target IPs"
 
     def __str__(self):
-        return f"{self.name} ({self.user})"
+        return f"{self.name} ({self.ip_address})"
 
 
-class BandwidthTest(models.Model):
-    """A bandwidth test collected from a monitored device."""
+class IPCheckResult(models.Model):
+    """Results from a scheduled connectivity check."""
 
-    # Nullable temporarily to support migration of existing records.
-    device = models.ForeignKey(
-        Device,
+    STATUS_CHOICES = [
+        ("healthy", "Healthy"),
+        ("warning", "Warning"),
+        ("offline", "Offline"),
+    ]
+
+    target = models.ForeignKey(
+        TargetIP,
         on_delete=models.CASCADE,
-        related_name="bandwidth_tests",
+        related_name="check_results",
+    )
+    checked_at = models.DateTimeField(auto_now_add=True)
+    is_reachable = models.BooleanField(default=False)
+    latency_ms = models.FloatField(null=True, blank=True)
+    packet_loss_percent = models.FloatField(
         null=True,
         blank=True,
     )
-
-    timestamp = models.DateTimeField(auto_now_add=True)
-    download_speed = models.FloatField()
-    upload_speed = models.FloatField()
-    ping = models.FloatField(null=True, blank=True)
-    packet_loss = models.FloatField(null=True, blank=True)
-
-    ssid = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="offline",
     )
-    wifi_signal = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-    )
-    wifi_link_speed = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-    )
-
-    local_ip = models.GenericIPAddressField(
-        blank=True,
-        null=True,
-    )
-    gateway = models.GenericIPAddressField(
-        blank=True,
-        null=True,
-    )
-    server_name = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-    )
+    error_message = models.TextField(blank=True)
 
     class Meta:
-        ordering = ["-timestamp"]
+        ordering = ["-checked_at"]
         indexes = [
             models.Index(
-                fields=["device", "-timestamp"],
-                name="bw_device_time_idx",
+                fields=["target", "-checked_at"],
+                name="ipcheck_target_time_idx",
             ),
         ]
 
     def __str__(self):
         return (
-            f"{self.timestamp} - "
-            f"{self.download_speed:.2f} Mbps"
+            f"{self.target.ip_address} - "
+            f"{self.status} - {self.checked_at}"
         )
-
-
-class NetworkHealth(models.Model):
-    """The latest health status for a monitored device."""
-
-    # Nullable temporarily to support existing health records.
-    device = models.ForeignKey(
-        Device,
-        on_delete=models.CASCADE,
-        related_name="health_records",
-        null=True,
-        blank=True,
-    )
-
-    timestamp = models.DateTimeField(auto_now=True)
-
-    internet_connected = models.BooleanField(default=False)
-
-    ping = models.FloatField(null=True, blank=True)
-    packet_loss = models.FloatField(null=True, blank=True)
-
-    ssid = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-    )
-    wifi_signal = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-    )
-    wifi_link_speed = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-    )
-
-    local_ip = models.GenericIPAddressField(
-        blank=True,
-        null=True,
-    )
-    gateway = models.GenericIPAddressField(
-        blank=True,
-        null=True,
-    )
-
-    status = models.CharField(
-        max_length=50,
-        default="healthy",
-    )
-    alert_message = models.TextField(
-        blank=True,
-        null=True,
-    )
-
-    last_successful_check = models.DateTimeField(
-        null=True,
-        blank=True,
-    )
-    next_bandwidth_test = models.DateTimeField(
-        null=True,
-        blank=True,
-    )
-    monitor_heartbeat = models.DateTimeField(
-        null=True,
-        blank=True,
-    )
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["device"],
-                name="unique_health_per_device",
-            ),
-        ]
-        indexes = [
-            models.Index(
-                fields=["device", "-timestamp"],
-                name="health_device_time_idx",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.timestamp} - {self.status}"

@@ -1,185 +1,115 @@
+from unittest.mock import patch
 
-import hashlib
-import json
-import secrets
-
-from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import BandwidthTest, Device, NetworkHealth
+from .models import IPCheckResult, TargetIP
 
 
-User = get_user_model()
+class TargetIPModelTests(TestCase):
+    def test_target_ip_creation(self):
+        target = TargetIP.objects.create(
+            name="Google DNS",
+            ip_address="8.8.8.8",
+        )
+
+        self.assertEqual(target.name, "Google DNS")
+        self.assertTrue(target.is_active)
+        self.assertEqual(str(target.ip_address), "8.8.8.8")
+
+    def test_target_ip_must_be_unique(self):
+        TargetIP.objects.create(
+            name="Target One",
+            ip_address="8.8.8.8",
+        )
+
+        with self.assertRaises(Exception):
+            TargetIP.objects.create(
+                name="Duplicate Target",
+                ip_address="8.8.8.8",
+            )
 
 
-class DeviceIsolationTests(TestCase):
+class DashboardTests(TestCase):
     def setUp(self):
-        self.user1 = User.objects.create_user(
-            username="user_one",
-            password="TestPassword123!",
-        )
-        self.user2 = User.objects.create_user(
-            username="user_two",
-            password="TestPassword123!",
+        self.target = TargetIP.objects.create(
+            name="Google DNS",
+            ip_address="8.8.8.8",
         )
 
-        # Store only the SHA-256 hash of the device token.
-        self.raw_token = secrets.token_hex(32)
-        token_hash = hashlib.sha256(
-            self.raw_token.encode("utf-8")
-        ).hexdigest()
-
-        self.device1 = Device.objects.create(
-            user=self.user1,
-            name="Laptop One",
-            device_token_hash=token_hash,
-        )
-
-        self.device2 = Device.objects.create(
-            user=self.user2,
-            name="Laptop Two",
-            device_token_hash=hashlib.sha256(
-                secrets.token_hex(32).encode("utf-8")
-            ).hexdigest(),
-        )
-
-        BandwidthTest.objects.create(
-            device=self.device1,
-            download_speed=100,
-            upload_speed=20,
-            ping=10,
-        )
-
-        BandwidthTest.objects.create(
-            device=self.device2,
-            download_speed=500,
-            upload_speed=100,
-            ping=5,
-        )
-
-    def test_dashboard_requires_login(self):
-        response = self.client.get(reverse("dashboard"))
-
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/login/", response.url)
-
-    def test_user_sees_only_their_devices(self):
-        self.client.login(
-            username="user_one",
-            password="TestPassword123!",
-        )
-
-        response = self.client.get(reverse("dashboard"))
+    def test_dashboard_is_public(self):
+        response = self.client.get(reverse("monitor:dashboard"))
 
         self.assertEqual(response.status_code, 200)
 
-        device_ids = [
-            str(device.device_id)
-            for device in response.context["devices"]
-        ]
-
-        self.assertIn(str(self.device1.device_id), device_ids)
-        self.assertNotIn(str(self.device2.device_id), device_ids)
-
-    def test_user_cannot_select_another_users_device(self):
-        self.client.login(
-            username="user_one",
-            password="TestPassword123!",
-        )
-
-        response = self.client.get(
-            reverse("live_status"),
-            {"device_id": str(self.device2.device_id)},
-        )
-
-        self.assertEqual(response.status_code, 404)
-
-    def test_live_status_requires_login(self):
-        response = self.client.get(reverse("live_status"))
-
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/login/", response.url)
-
-
-class AgentApiAuthenticationTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username="agent_owner",
-            password="TestPassword123!",
-        )
-
-        self.token = secrets.token_hex(32)
-
-        Device.objects.create(
-            user=self.user,
-            name="Test Laptop",
-            device_token_hash=hashlib.sha256(
-                self.token.encode("utf-8")
-            ).hexdigest(),
-        )
-
-    def test_health_endpoint_rejects_missing_token(self):
-        response = self.client.post(
-            reverse("ingest_health"),
-            data=json.dumps({"internet_connected": True}),
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 401)
-
-    def test_bandwidth_endpoint_rejects_invalid_token(self):
-        response = self.client.post(
-            reverse("ingest_bandwidth"),
-            data=json.dumps({
-                "download_speed": 100,
-                "upload_speed": 20,
-                "ping": 10,
-            }),
-            content_type="application/json",
-            HTTP_AUTHORIZATION="Bearer invalid-token",
-        )
-
-        self.assertEqual(response.status_code, 401)
-
-    def test_health_endpoint_accepts_valid_token(self):
-        response = self.client.post(
-            reverse("ingest_health"),
-            data=json.dumps({
-                "internet_connected": True,
-                "ping": 12.5,
-                "packet_loss": 0,
-            }),
-            content_type="application/json",
-            HTTP_AUTHORIZATION=f"Bearer {self.token}",
-        )
+    def test_dashboard_shows_configured_targets(self):
+        response = self.client.get(reverse("monitor:dashboard"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(
-            NetworkHealth.objects.filter(
-                device__user=self.user,
-                internet_connected=True,
-            ).exists()
+        self.assertContains(response, "Google DNS")
+        self.assertContains(response, "8.8.8.8")
+
+    def test_dashboard_shows_latest_check(self):
+        IPCheckResult.objects.create(
+            target=self.target,
+            is_reachable=True,
+            latency_ms=25.5,
+            packet_loss_percent=0,
+            status="healthy",
         )
 
-    def test_bandwidth_endpoint_saves_data_for_authenticated_device(self):
-        response = self.client.post(
-            reverse("ingest_bandwidth"),
-            data=json.dumps({
-                "download_speed": 100,
-                "upload_speed": 20,
-                "ping": 10,
-                "packet_loss": 0,
-            }),
-            content_type="application/json",
-            HTTP_AUTHORIZATION=f"Bearer {self.token}",
+        response = self.client.get(reverse("monitor:dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Healthy")
+        self.assertContains(response, "25.50")
+
+
+class ScheduledIPCheckTests(TestCase):
+    def setUp(self):
+        self.target = TargetIP.objects.create(
+            name="Google DNS",
+            ip_address="8.8.8.8",
         )
 
-        self.assertEqual(response.status_code, 201)
+    @patch("monitor.management.commands.check_target_ips.check_ip")
+    def test_command_saves_successful_check(self, mock_check_ip):
+        mock_check_ip.return_value = (True, 25.5, "")
 
-        test = BandwidthTest.objects.get(
-            device__user=self.user,
+        call_command("check_target_ips")
+
+        result = IPCheckResult.objects.get(target=self.target)
+
+        self.assertTrue(result.is_reachable)
+        self.assertEqual(result.latency_ms, 25.5)
+        self.assertEqual(result.packet_loss_percent, 0)
+        self.assertEqual(result.status, "healthy")
+
+    @patch("monitor.management.commands.check_target_ips.check_ip")
+    def test_command_saves_failed_check(self, mock_check_ip):
+        mock_check_ip.return_value = (
+            False,
+            None,
+            "Ping failed or timed out",
         )
 
-        self.assertEqual(test.download_speed, 100)
-        self.assertEqual(test.upload_speed, 20)
+        call_command("check_target_ips")
+
+        result = IPCheckResult.objects.get(target=self.target)
+
+        self.assertFalse(result.is_reachable)
+        self.assertIsNone(result.latency_ms)
+        self.assertEqual(result.packet_loss_percent, 100)
+        self.assertEqual(result.status, "offline")
+        self.assertEqual(result.error_message, "Ping failed or timed out")
+
+    @patch("monitor.management.commands.check_target_ips.check_ip")
+    def test_command_skips_inactive_targets(self, mock_check_ip):
+        self.target.is_active = False
+        self.target.save(update_fields=["is_active"])
+
+        call_command("check_target_ips")
+
+        mock_check_ip.assert_not_called()
+        self.assertEqual(IPCheckResult.objects.count(), 0)
